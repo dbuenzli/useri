@@ -1,0 +1,12 @@
+<**/*.{ml,mli}> : bin_annot, annot, debug
+<src> : include
+
+<src/*> : package(gg), package(react), package(fut)
+<src/useri_top.*> : package(compiler-libs.toplevel)
+
+<src/tsdl> : include
+<src/tsdl/*> : package(gg), package(react), package(tsdl), package(fut)
+
+<src/jsoo> : include
+<src/jsoo/*> : package(gg), package(react), package(js_of_ocaml), \
+               package(js_of_ocaml.syntax)

@@ -1,0 +1,39 @@
+description = "Declarative user input for OCaml"
+version = "%%VERSION%%"
+
+package "top" (
+ version = "%%VERSION%%"
+ description = "Toplevel module for Useri"
+ requires = "gg react compiler-libs.toplevel"
+ archive(byte) = "useri_top.cma"
+ archive(byte, plugin) = "useri_top.cma"
+ archive(native) = "useri_top.cmxa"
+ archive(native, plugin) = "useri_top.cmxs"
+ exists_if = "useri_top.cma"
+)
+
+package "tsdl" (
+  description = "Useri's tsdl backend"
+  version = "%%VERSION%%"
+  requires = "gg react tsdl"
+  archive(byte) = "useri_tsdl.cma"
+  archive(byte, plugin) = "useri_tsdl.cma"
+  archive(byte, toploop) += "useri_top.cma"
+  archive(native) = "useri_tsdl.cmxa"
+  archive(native, plugin) = "useri_tsdl.cmxs"
+  archive(native, toploop) += "useri_top.cmxa"
+  exists_if = "useri_tsdl.cma"
+)
+
+package "jsoo" (
+  version = "%%VERSION%%"
+  description = "Useri's js_of_ocaml backend"
+  requires = "gg react js_of_ocaml js_of_ocaml.syntax"
+  archive(byte) = "useri_jsoo.cma"
+  archive(byte, plugin) = "useri_jsoo.cma"
+  archive(byte, toploop) += "userix_top.cma"
+  archive(native) = "useri_jsoo.cmxa"
+  archive(native, plugin) = "useri_jsoo.cmxs"
+  archive(native, toploop) += "useri.cmxa useri_top.cmxa"
+  exists_if = "useri_jsoo.cma"
+)
