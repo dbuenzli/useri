@@ -10,7 +10,9 @@
 
     Open the module to use it, this defines only modules in your scope.
 
-    {b Note.} Before {!init} is called all signals hold invalid data. *)
+    {b Note.} Before {!init} is called all signals hold invalid data. 
+
+    {e Release %%VERSION%% — %%MAINTAINER%% } *)
 
 open Gg
 open React
