@@ -6,7 +6,7 @@ let tsdl = Env.bool "tsdl"
 let jsoo = Env.bool "jsoo"
 
 let () = 
-  Pkg.describe "" ~builder:`OCamlbuild [
+  Pkg.describe "useri" ~builder:`OCamlbuild [
     Pkg.lib "pkg/META";
     Pkg.lib ~exts:Exts.library "src/useri_top";
     Pkg.lib ~exts:Exts.interface "src/useri";
