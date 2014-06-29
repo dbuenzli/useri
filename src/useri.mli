@@ -229,7 +229,7 @@ module Time : sig
 end
 
 (** Human factors. *) 
-module User : sig
+module Human : sig
 
   (** {1 System latency feelings} 
 

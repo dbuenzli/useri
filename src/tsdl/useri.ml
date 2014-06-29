@@ -457,7 +457,7 @@ module Time = struct
   let pp_mus ppf s = Format.fprintf ppf "%gμs" (s *. 1e6)
 end
 
-module User = struct
+module Human = struct
 
   let noticed = 0.1 
   let interrupted = 1. 
