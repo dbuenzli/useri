@@ -10,7 +10,7 @@
 
     Open the module to use it, this defines only modules in your scope.
 
-    {b Note.} Before {!init} is called all signals hold invalid data. 
+    {b Note.} Before {!App.init} is called all signals hold invalid data. 
 
     {e Release %%VERSION%% — %%MAINTAINER%% } *)
 
@@ -107,7 +107,8 @@ module Key : sig
   (** [any_down] occurs whenever a key is down. *)
 
   val any_repeat : sym event
-  (** [sym_repeat] occurs whenever a key is down and hold. *)
+  (** [sym_repeat] occurs whenever a key is down and continues to 
+      occur periodically while a key is down. *)
 
   val any_up : sym event 
   (** [sym_up] occurs whenever a key is up. *) 
@@ -130,15 +131,15 @@ module Key : sig
 
   val meta : bool signal 
   (** [meta] is [true] whenever a meta key is down. Equivalent to:
-      {[S.l2 ( || ) (state (`Meta `Left)) (state (`Meta `Right)]} *)
+      {[S.l2 ( || ) (holds (`Meta `Left)) (holds (`Meta `Right)]} *)
 
   val ctrl : bool signal 
   (** [ctrl] is [true] whenever a ctrl key is down. Equivalent to:
-      {[S.l2 ( || ) (state (`Ctrl `Left)) (state (`Ctrl `Right)]} *)
+      {[S.l2 ( || ) (holds (`Ctrl `Left)) (holds (`Ctrl `Right)]} *)
 
   val alt : bool signal 
   (** [alt] is [true] whenever an alt key is down. Equivalent to: 
-      {[S.l2 ( || ) (state (`Alt `Left)) (state (`Alt `Right)]} *)
+      {[S.l2 ( || ) (holds (`Alt `Left)) (holds (`Alt `Right)]} *)
 end
 
 (** User text keyboard input and clipboard. *)
@@ -292,7 +293,7 @@ module Surface : sig
 
   val size : size2 signal 
   (** [size] is the application's rendering surface size. 
-      Differs from {!Appr.App.size} on high-dpi displays. *)
+      Differs from {!App.size} on high-dpi displays. *)
 
   (** {1 Refreshing} 
 
@@ -443,7 +444,7 @@ module App : sig
 
   val mode : mode signal 
   (** [mode] is the application's mode. This signal 
-      is defined by the signal given to {!init}. *)
+      is defined by the signal given to {!App.init}. *)
 
   val mode_switch : ?init:mode -> 'a event -> mode signal 
   (** [mode_switch init e] has value [init] (defaults to `Windowed) and 

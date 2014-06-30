@@ -10,3 +10,10 @@
 <src/jsoo> : include
 <src/jsoo/*> : package(gg), package(react), package(js_of_ocaml), \
                package(js_of_ocaml.syntax)
+
+<test> : include
+<test/*> : package(gg), package(react)
+<test/*tsdl*> : package(tsdl), use_useri_tsdl
+<test/*jsoo*> : package(js_of_ocaml), use_useri_jsoo
+<test/*fut*> : thread, package(fut.select), package(fut.r), package(fut)
+<test/*lwt*> : package(lwt)
