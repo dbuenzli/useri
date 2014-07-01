@@ -13,7 +13,7 @@ let builder =
      "_build")
 
 let () = 
-  Pkg.describe "useri" ~builder:`Other(builder,"_build") [
+  Pkg.describe "useri" ~builder [
     Pkg.lib "pkg/META";
     Pkg.lib ~exts:Exts.library "src/useri_top";
     Pkg.lib ~exts:Exts.interface "src/useri";
