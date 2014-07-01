@@ -8,12 +8,6 @@ open Gg
 open React
 open Useri
 
-let rec run ~until = 
-  let timeout = App.run_step () in 
-  match Fut.await ~timeout until with
-  | `Undet -> run ~until
-  | `Det _ | `Never -> ()
-      
 let main () = 
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
@@ -21,9 +15,9 @@ let main () =
   match App.init ~hidpi ~size ~mode () with 
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
-      Test.parse_args_and_setup ();
-      run ~until:(Futr.of_event App.quit); 
-      exit 0
+      match App.runtime_backend with 
+      | `Sync -> App.run ~until:App.quit; exit 0
+      | `Async -> ()
 
 let () = main ()  
 

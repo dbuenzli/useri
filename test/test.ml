@@ -63,8 +63,6 @@ let trace_text set_clipboard =
   | Some s as c -> log "Setting clipboard to %S" s; Text.set_clipboard c
   | None -> ()
   
-
-
 let test mods set_clipboard = 
   let do_trace m = mods = [] || List.mem m mods in
   if do_trace `Mouse then trace_mouse ();

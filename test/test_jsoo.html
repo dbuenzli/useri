@@ -1,33 +1,40 @@
-(*---------------------------------------------------------------------------
+<!DOCTYPE html>
+<!--
    Copyright (c) 2014 Daniel C. Bünzli. All rights reserved.
    Distributed under the BSD3 license, see license at the end of the file.
    %%NAME%% release %%VERSION%%
-  ---------------------------------------------------------------------------*)
+-->
 
-open Gg
-open React
-open Useri
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,
+                                 initial-scale=1.0">
+  <script type="text/javascript" defer="defer" src="test_jsoo.js"></script>
+  <style type="text/css">
+    @import url(http://fonts.googleapis.com/css?family=Lato:300);
+    
+    body { background-color: black; 
+           color: #A0A0A0; 
+           font-size: 1em; 
+           line-height: 1.3125em;
+           font-family: 'Lato', sans-serif;
+           font-weight: 300; 
+           margin: 3em; }
 
-let rec run ~until = 
-  let timeout = App.run_step () in 
-  match Fut.await ~timeout until with
-  | `Undet -> run ~until
-  | `Det _ | `Never -> ()
-      
-let main () = 
-  let hidpi = App.env "HIDPI" ~default:true bool_of_string in
-  let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
-  let size = Size2.v 600. 400. in 
-  match App.init ~hidpi ~size ~mode () with 
-  | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () ->
-      Test.parse_args_and_setup ();
-      run ~until:(Futr.of_event App.quit); 
-      exit 0
+    h1 { font-weight: 300; text-transform: uppercase; font-size: 2em; }
 
-let () = main ()  
+  </style>
+  <title>Useri Test</title>
+</head>
+<body>
+  <noscript>Sorry, you need to enable JavaScript to see this page.</noscript>
+  <h1>Useri Testing</h1>
+  <p>See the browser console for more information.</p>
+</body>
+</html>
 
-(*---------------------------------------------------------------------------
+<!--
    Copyright (c) 2014 Daniel C. Bünzli.
    All rights reserved.
 
@@ -58,4 +65,4 @@ let () = main ()
    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  ---------------------------------------------------------------------------*)
+  -->
