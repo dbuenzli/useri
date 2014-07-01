@@ -711,6 +711,7 @@ module App = struct
     Exit -> `Gui
 
   let platform = Sdl.get_platform () 
+  let backend_runtime = `Sync
   let cpu_count = Sdl.get_cpu_count ()
 
   let prefs_path ~org ~app = Sdl.get_pref_path ~org ~app
@@ -765,19 +766,22 @@ module App = struct
 
   let start, send_start = E.create ()
   let stop, send_stop = E.create ()    
-  let exit s = match !app with 
-  | None -> exit s 
+  let release () = match !app with
+  | None -> ()
   | Some (win, ctx) -> 
       ignore (Window.destroy win ctx); 
       Sdl.quit (); 
-      exit s
-        
+      ()
+
+  let e_some = ref None  
+
   let init ?(hidpi = true) ?pos ?(size = V2.v 600. 400.) 
       ?(name = String.capitalize execname)
       ?(surface = Surface.spec (3,2) ()) ?(mode = S.value mode_sig) () =
     Sdl.init Sdl.Init.(video + events) >>= fun () ->
     Window.create hidpi pos size name surface (S.value mode) >>= fun i ->
     let step = React.Step.create () in
+    e_some := Some (Sdl.Event.create ());
     app := Some i;
     set_mode_sig mode;
     set_pos ~step (window_pos ());
@@ -788,9 +792,17 @@ module App = struct
     Text.sdl_init step;
     Drop.sdl_init step;
     React.Step.execute step;
+    let step = React.Step.create () in
+    Surface.send_simple_refresh ~step (); 
+    send_start ~step ();
+    React.Step.execute step;
+    (match !app with None -> () | Some (win, _) -> Sdl.show_window win);
     `Ok ()
     
   let do_event e =
+    let e = match e with None -> assert false (* TODO invalid_arg *) 
+                       | Some e -> e 
+    in
     let event e = Sdl.Event.(enum (get e typ)) in
     match event e with 
     | `Quit -> send_quit ()
@@ -809,27 +821,21 @@ module App = struct
     | `Drop_file -> Drop.sdl_file e
     | _ -> ()
 
-  (* TODO where to put that *) 
-    
-  (* TODO devise a real fairness strategy. *) 
-  let run fut =
-    let e = Sdl.Event.create () in 
-    let e_some = Some e in
-    let rec loop () =
-      while Sdl.poll_event e_some do do_event e; done;
-      let now = Time.tick_now () in 
-      let deadline = Time.Line.execute Time.line now in
-      let timeout = Float.fmin 10e-3 (Time.tick_diff_secs deadline now)in 
-      match Fut.await ~timeout fut with 
-      | `Never | `Det _ as v -> send_stop (); v
-      | `Undet -> loop ()
+
+  let run_step () = 
+    while Sdl.poll_event !e_some do do_event !e_some; done;
+    let now = Time.tick_now () in 
+    let deadline = Time.Line.execute Time.line now in
+    Float.fmin 10e-3 (Time.tick_diff_secs deadline now)
+
+  let rec run ~until = 
+    let rec loop stop = 
+      let t = run_step () in 
+      Sdl.delay (Int32.of_float (t *. 1000.));
+      if S.value stop then () else loop stop
     in
-    let step = React.Step.create () in
-    send_start ~step ();
-    Surface.send_simple_refresh ~step (); 
-    React.Step.execute step;
-    (match !app with None -> () | Some (win, _) -> Sdl.show_window win);
-    loop ()
+    loop (S.hold false (E.stamp until true))
+
 end
   
 

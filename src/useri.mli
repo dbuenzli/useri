@@ -416,6 +416,16 @@ module App : sig
   val platform : string
   (** [platform] is the name of the platform you are running on. *) 
 
+  val backend_runtime : [ `Sync | `Async ]
+  (** [backend_runtime] is the backend's runtime kind: 
+      {ul 
+      {- [`Sync], the runtime is synchronous the client of the library 
+         is in charge of running the event loop by using {!run_step} 
+         or {!run}.}
+      {- [`Async], the runtime is asynchronous, there's an inversion 
+         of control. After calling {!init} the client doesn't need
+         to do anything.}} *)
+
   val cpu_count : int 
   (** [cpu_count] is the number of CPU available. *) 
 
@@ -450,6 +460,11 @@ module App : sig
   (** [mode_switch init e] has value [init] (defaults to `Windowed) and 
       switches mode on each occurence of [e]. *) 
 
+  (** {1 User requested quit} *)
+
+  val quit : unit event
+  (** [quit] occurs whenever the user requested to quit. *)
+
   (** {1 Event and signal sinks} *) 
 
   val sink_event : 'a event -> unit 
@@ -461,22 +476,15 @@ module App : sig
   val clear_sinks : unit -> unit
   (** Clears the sink references and performs a full garbage collection. *) 
 
-  (** {1 Init, run and exit} 
-
-      {b TODO.} There should be an intermediate state between running and 
-      exit where should allow to reclaim and restart an app.
-*)
+  (** {1 Init, run and release} *)
 
   val start : unit event
-  (** [start] occurs when {!run} is called. *)
+  (** [start] occurs at the end of {!init}. *)
 
   val stop : unit event 
   (** [stop] occurs when {!run} returns. *)
 
-  val quit : unit event
-  (** [quit] occurs whenever the user requested to quit. *)
-
-  val init : 
+  val init :
     ?hidpi:bool -> 
     ?pos:p2 -> 
     ?size:size2 -> 
@@ -488,15 +496,20 @@ module App : sig
       {ul 
       {- [hidpi] if [true] (default) tries to get a high-dpi surface.}
       {- [mode], defines the application mode and the {!value:mode} signal, 
-         defaults to [S.const `Windowed].}
-      {- [refresh], see {!Surface.refresh}.}} *)
+         defaults to [S.const `Windowed].}}. *)
 
-  val run : 'a Fut.t -> [ `Det of 'a | `Never ] 
-  (** [run f] determines [f]. Once determined this can be called again. *)
+  val run_step : unit -> Time.span 
+  (** [run_step ()] gather as much user input as possible and returns 
+      the maximal timespan after which it should be called again. *)
+  
+  val run : until:'a event -> unit
+  (** [run ~until] invokes {!run_step} repeatedly and blocks until 
+      the first occurence of [until]. *)
 
-  val exit : int -> unit
-  (** [exit s] reclaims resources and exit terminates the application with 
-      status code [s]. *)
+  val release : unit -> unit 
+  (** [release ()] makes {!stop} occur and then reclaims resources, 
+      once the function returns no event will occur and signals 
+      won't update anymore. *)
 end
 
 (*---------------------------------------------------------------------------

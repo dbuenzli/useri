@@ -8,3 +8,4 @@
   they are but have a notion of active surface.
 * Tsdl, fix any_repeat, stops after multikey.
 * Tsdl, fix set_clipboard, doesn't seem to survive program exit.
+* Support for touch.
