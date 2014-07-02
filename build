@@ -14,13 +14,14 @@ action ()
     case $1 in
       default)      $OCAMLBUILD useri.cmi ;;
       tests)        $OCAMLBUILD tests.otarget ;;
-      test_jsoo)    shift; jsoo-build "$*" test/test_jsoo.ml
-                    ;;
       doc)          shift; pkg-doc $* doc/dev-api.docdir ;;
       api-doc)      shift; pkg-doc $* doc/api.docdir ;;
-      backends)     $OCAMLBUILD user_tsdl.cmxa useri_jsoo.cmxa ;;
+      backends)     $OCAMLBUILD useri_tsdl.cmxa useri_jsoo.cmxa ;;
       clean)        $OCAMLBUILD -clean ;;
-      jsoo)         shift; jsoo-build $* ;;
+      jsoo)         shift; 
+                    $OCAMLBUILD $1.js $1.html
+                    reload-browser "http://`hostname`/useri/$1.html"
+                    ;;
       *)            $OCAMLBUILD $* ;;
     esac
 } 

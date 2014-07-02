@@ -4,7 +4,64 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-include Useri_jsoo
+(** Base module for backends. *) 
+
+open Gg
+open React
+
+(** User keyboard. *)
+module Key : sig
+
+  type sym =
+    [ `Alt of [ `Left | `Right ]
+    | `Arrow of [ `Up | `Down | `Left | `Right ]
+    | `Backspace 
+    | `Ctrl of [ `Left | `Right ]
+    | `Digit of int
+    | `End
+    | `Enter
+    | `Escape
+    | `Function of int
+    | `Home
+    | `Meta of [ `Left | `Right ] 
+    | `Page of [ `Up | `Down ]
+    | `Return
+    | `Shift of [ `Left | `Right ]
+    | `Space
+    | `Tab
+    | `Uchar of int
+    | `Unknown of int ]
+
+  val uchar : char -> [> `Uchar of int ]
+  val pp_sym : ?uchar:bool -> Format.formatter -> sym -> unit
+end
+
+(** Time. *)
+module Time : sig
+  type span = float 
+  val pp_s : Format.formatter -> span -> unit
+  val pp_ms : Format.formatter -> span -> unit
+  val pp_mus : Format.formatter -> span -> unit
+end
+
+(** Human factors. *) 
+module Human : sig
+  val noticed : Time.span
+  val interrupted : Time.span
+  val left : Time.span
+  val feel : unit -> [ `Interacting | `Interrupted | `Left ] signal
+  val touch_target_size : float 
+  val touch_target_size_min : float 
+  val touch_target_pad : float 
+  val average_finger_width : float 
+end
+
+(** Application  *) 
+module App : sig
+  type launch_context = [ `Browser | `Gui | `Terminal ]
+  val pp_launch_context : Format.formatter -> launch_context -> unit 
+  type mode = [ `Windowed | `Fullscreen ] 
+end
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.
