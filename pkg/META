@@ -3,7 +3,7 @@ version = "%%VERSION%%"
 
 archive(byte) = "useri.cma"
 archive(byte, plugin) = "useri.cma"
-archive(native) = "uersi.cmxa"
+archive(native) = "useri.cmxa"
 archive(native, plugin) = "useri.cmxs"
 exists_if = "useri.cma"
 
