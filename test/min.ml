@@ -8,6 +8,8 @@ open Gg
 open React
 open Useri
 
+(** TODO compilation instructions  *)
+
 let main () = 
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
@@ -17,7 +19,7 @@ let main () =
   | `Ok () ->
       match App.runtime_backend with 
       | `Sync -> App.run ~until:App.quit; exit 0
-      | `Async -> ()
+      | `Async -> App.sink_event (E.map App.release) App.quit; exit 0
 
 let () = main ()  
 

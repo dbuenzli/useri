@@ -22,7 +22,7 @@ module Mouse = struct
 end
 
 module Key = struct
-  include Useri_base.Key 
+  include Useri_backend_base.Key 
 
   let any_down : sym event = fst (E.create ())
   let any_repeat : sym event = fst (E.create ())
@@ -52,7 +52,7 @@ module Drop = struct
 end
 
 module Time = struct
-  include Useri_base.Time
+  include Useri_backend_base.Time
 
   let elapsed : unit -> span = fun () -> failwith "TODO"
   let tick : span -> span event = fun span -> failwith "TODO"
@@ -62,7 +62,8 @@ module Time = struct
 end
 
 module Human = struct
-  include Useri_base.Human
+  include Useri_backend_base.Human
+
   let feel : unit -> [ `Interacting | `Interrupted | `Left ] signal = 
     fun () -> failwith "TODO"
 end
@@ -100,7 +101,7 @@ module Surface = struct
 end
 
 module App = struct
-  include Useri_base.App
+  include Useri_backend_base.App
 
   let launch_context = `Browser
   let platform = "TODO"

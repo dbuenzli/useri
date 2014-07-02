@@ -15,8 +15,8 @@ let builder =
 let () = 
   Pkg.describe "useri" ~builder [
     Pkg.lib "pkg/META";
+    Pkg.lib ~exts:Exts.library "src/useri";
     Pkg.lib ~exts:Exts.library "src/useri_top";
-    Pkg.lib ~exts:Exts.interface "src/useri";
     Pkg.lib ~cond:tsdl ~exts:Exts.library "src/tsdl/useri_tsdl";
     Pkg.lib ~cond:jsoo ~exts:Exts.library "src/jsoo/useri_jsoo";
     Pkg.doc "README.md";

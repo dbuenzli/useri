@@ -1,8 +1,22 @@
 description = "Declarative user input for OCaml"
 version = "%%VERSION%%"
 
+archive(byte) = "useri.cma"
+archive(byte, plugin) = "useri.cma"
+archive(native) = "uersi.cmxa"
+archive(native, plugin) = "useri.cmxs"
+exists_if = "useri.cma"
+
+# Backends 
+
+# For toplevel we need to load the backend before useri since
+# the backend provides the implementation of Useri_backend that useri needs.
+# For this reason the toploop predicate is not specified in useri but in 
+# in backends and the user should just #require directly the backend.
+
 package "top" (
  description = "Toplevel module for Useri"
+ version = "%%VERSION%%"
  requires = "gg react compiler-libs.toplevel"
  archive(byte) = "useri_top.cma"
  archive(byte, plugin) = "useri_top.cma"
@@ -13,18 +27,20 @@ package "top" (
 
 package "tsdl" (
   description = "Useri's tsdl backend"
+  version = "%%VERSION%%"
   requires = "gg react tsdl"
   archive(byte) = "useri_tsdl.cma"
   archive(byte, plugin) = "useri_tsdl.cma"
-  archive(byte, toploop) += "useri_top.cma"
+  archive(byte, toploop) += "useri.cma useri_top.cma"
   archive(native) = "useri_tsdl.cmxa"
   archive(native, plugin) = "useri_tsdl.cmxs"
-  archive(native, toploop) += "useri_top.cmxa"
+  archive(native, toploop) += "useri.cma useri_top.cmxa"
   exists_if = "useri_tsdl.cma"
 )
 
 package "jsoo" (
   description = "Useri's js_of_ocaml backend"
+  version = "%%VERSION%%"
   requires = "gg react js_of_ocaml js_of_ocaml.syntax"
   archive(byte) = "useri_jsoo.cma"
   archive(byte, plugin) = "useri_jsoo.cma"
