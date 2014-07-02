@@ -4,6 +4,37 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
+open Gg
+open React
+open Useri
+
+let ( >>= ) = Lwt.( >>= )
+
+let run ~until = 
+  let det = until >>= fun x -> Lwt.return (`Det x) in
+  let timeout t = Lwt_unix.sleep t >>= fun () -> Lwt.return `Undet in
+  let rec loop () =
+    let t = App.run_step () in
+    match Lwt_main.run (Lwt.choose [timeout t; det]) with 
+    | `Undet -> loop () 
+    | `Det _ -> () 
+  in
+  loop ()
+
+let main () = 
+  let hidpi = App.env "HIDPI" ~default:true bool_of_string in
+  let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
+  let size = Size2.v 600. 400. in 
+  match App.init ~hidpi ~size ~mode () with 
+  | `Error e -> Printf.eprintf "%s" e; exit 1
+  | `Ok () ->
+      Test.parse_args_and_setup ();
+      run ~until:(Lwt_react.E.next App.quit);
+      App.release ();
+      exit 0
+
+let () = main ()  
+
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.
    All rights reserved.

@@ -17,6 +17,7 @@ let main () =
   | `Ok () ->
       Test.parse_args_and_setup ();
       App.run ~until:App.quit; 
+      App.release ();
       exit 0
 
 let () = main ()  
