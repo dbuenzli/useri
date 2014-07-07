@@ -13,9 +13,13 @@ let pp fmt = Format.fprintf fmt
 let pp_str = Format.pp_print_string
 let pp_str_esc ppf = pp ppf "%S" 
 let pp_bool = Format.pp_print_bool
+let pp_unit ppf () = pp ppf "()"
 let pp_opt pp_v ppf = function 
 | None -> pp ppf "None"
 | Some v -> pp ppf "Some %a" pp_v v
+
+let trace_v pp mname vname v = 
+  log "@[%s.%s = %a@]" mname vname pp v
               
 let trace_e pp mname ename e = 
   let log occ = log "@[%s.%s ! %a@]" mname ename pp occ in
@@ -63,12 +67,23 @@ let trace_text set_clipboard =
   | Some s as c -> log "Setting clipboard to %S" s; Text.set_clipboard c
   | None -> ()
   
+let trace_app () = 
+  let mname = "App" in 
+  trace_e pp_unit mname "start" App.start;
+  trace_e pp_unit mname "stop" App.stop;
+  trace_v pp_str mname "platform" App.platform;
+  trace_v App.pp_launch_context mname "launch_context" App.launch_context;
+  trace_v App.pp_backend mname "backend" App.backend;
+  trace_v App.pp_backend_scheme mname "backend_scheme" App.backend_scheme;
+  trace_v App.pp_cpu_count mname "cpu_count" App.cpu_count;
+  ()
+
 let test mods set_clipboard = 
   let do_trace m = mods = [] || List.mem m mods in
   if do_trace `Mouse then trace_mouse ();
   if do_trace `Key   then trace_key (); 
   if do_trace `Text  then trace_text set_clipboard; 
-  trace_key ();
+  if do_trace `App   then trace_app ();
   ()
   
 let parse_args_and_setup () =

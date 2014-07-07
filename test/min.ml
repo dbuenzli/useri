@@ -8,7 +8,12 @@ open Gg
 open React
 open Useri
 
-(** TODO compilation instructions  *)
+(** Compile with 
+    ocamlfind ocamlc \
+    -package useri.jsoo, useri \
+    -linkpkg -o min.byte min.ml \
+    && js_of_ocaml min.byte
+  *)
 
 let main () = 
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
@@ -16,10 +21,11 @@ let main () =
   let size = Size2.v 600. 400. in 
   match App.init ~hidpi ~size ~mode () with 
   | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () ->
-      match App.runtime_backend with 
-      | `Sync -> App.run ~until:App.quit; exit 0
-      | `Async -> App.sink_event (E.map App.release) App.quit; exit 0
+  | `Ok () -> 
+      App.run (); 
+      match App.backend_scheme with 
+      | `Sync -> App.release (); exit 0
+      | `Async -> App.sink_event (E.map App.release App.quit)
 
 let () = main ()  
 

@@ -16,7 +16,7 @@ let main () =
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
       Test.parse_args_and_setup ();
-      App.run ~until:App.quit; 
+      App.run ~until:App.quit (); 
       App.release ();
       exit 0
 

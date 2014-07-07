@@ -7,6 +7,8 @@
 open Gg
 open React
 
+let pp = Format.fprintf
+
 (* Keyboard *) 
 
 module Key = struct
@@ -38,26 +40,26 @@ module Key = struct
     | `Left -> "left" | `Right -> "right" | `Up -> "up" | `Down -> "down"
     in
     begin match ksym with
-    | `Alt dir -> Format.fprintf ppf "alt_%s" (dir_to_string dir)
-    | `Arrow dir -> Format.fprintf ppf "arrow_%s" (dir_to_string dir)
-    | `Backspace -> Format.fprintf ppf "backspace"
-    | `Ctrl dir -> Format.fprintf ppf "ctrl_%s" (dir_to_string dir)
+    | `Alt dir -> pp ppf "alt_%s" (dir_to_string dir)
+    | `Arrow dir -> pp ppf "arrow_%s" (dir_to_string dir)
+    | `Backspace -> pp ppf "backspace"
+    | `Ctrl dir -> pp ppf "ctrl_%s" (dir_to_string dir)
     | `Digit d -> 
-        if uchar then Format.fprintf ppf "%d" d else
-        Format.fprintf ppf "digit_%d" d
-    | `End -> Format.fprintf ppf "end"
-    | `Enter -> Format.fprintf ppf "enter"
-    | `Escape -> Format.fprintf ppf "escape" 
-    | `Function n -> Format.fprintf ppf "f%d" n
-    | `Home -> Format.fprintf ppf "home" 
-    | `Meta dir -> Format.fprintf ppf "meta_%s" (dir_to_string dir)
-    | `Page dir -> Format.fprintf ppf "page_%s" (dir_to_string dir)
-    | `Return -> Format.fprintf ppf "return"
-    | `Shift dir -> Format.fprintf ppf "shift_%s" (dir_to_string dir)
-    | `Space -> Format.fprintf ppf "space"
-    | `Tab -> Format.fprintf ppf "tab" 
-    | `Uchar u -> Format.fprintf ppf "U+%04X" u
-    | `Unknown u -> Format.fprintf ppf "unknown (%X)" u 
+        if uchar then pp ppf "%d" d else
+        pp ppf "digit_%d" d
+    | `End -> pp ppf "end"
+    | `Enter -> pp ppf "enter"
+    | `Escape -> pp ppf "escape" 
+    | `Function n -> pp ppf "f%d" n
+    | `Home -> pp ppf "home" 
+    | `Meta dir -> pp ppf "meta_%s" (dir_to_string dir)
+    | `Page dir -> pp ppf "page_%s" (dir_to_string dir)
+    | `Return -> pp ppf "return"
+    | `Shift dir -> pp ppf "shift_%s" (dir_to_string dir)
+    | `Space -> pp ppf "space"
+    | `Tab -> pp ppf "tab" 
+    | `Uchar u -> pp ppf "U+%04X" u
+    | `Unknown u -> pp ppf "unknown (%X)" u 
     end
 end
 
@@ -65,10 +67,12 @@ end
 
 module Time = struct 
   type span = float 
-  let pp_s ppf s = Format.fprintf ppf "%gs" s
-  let pp_ms ppf s = Format.fprintf ppf "%gms" (s *. 1e3)
-  let pp_mus ppf s = Format.fprintf ppf "%gμs" (s *. 1e6)
+  let pp_s ppf s = pp ppf "%gs" s
+  let pp_ms ppf s = pp ppf "%gms" (s *. 1e3)
+  let pp_mus ppf s = pp ppf "%gμs" (s *. 1e6)
 end
+
+(* Human *)
 
 module Human = struct
 
@@ -87,17 +91,44 @@ end
 (* Application *)
 
 module App = struct
- 
+
+  type mode = [ `Windowed | `Fullscreen ]
+
+  (* Launch context *) 
+
   type launch_context = [ `Browser | `Gui | `Terminal ]                        
-  let pp_launch_context ppf lc = Format.fprintf ppf begin match lc with 
+  let pp_launch_context ppf lc = pp ppf begin match lc with 
     | `Browser -> "browser"
     | `Gui -> "gui" 
     | `Terminal -> "terminal" 
     end
 
-  type mode = [ `Windowed | `Fullscreen ]
+  (* Backend *)
+
+  type backend = [ `Tsdl | `Jsoo | `Other of string ] 
+  let pp_backend ppf b = pp ppf "%s" begin match b with 
+    | `Tsdl -> "tsdl"
+    | `Jsoo -> "jsoo" 
+    | `Other b -> b 
+    end
+
+  type backend_scheme = [ `Sync | `Async ]
+  let pp_backend_scheme ppf b = pp ppf begin match b with 
+    | `Sync -> "sync"
+    | `Async -> "async"
+    end
+
+  let invalid_on_backend_scheme bs = 
+    invalid_arg (Format.asprintf "unapplicable in %a backend scheme" 
+                   pp_backend_scheme bs)
+
+  (* Cpu count *)
+
+  type cpu_count = [ `Known of int | `Unknown ]
+  let pp_cpu_count ppf = function 
+  | `Unknown -> pp ppf "unknown"
+  | `Known c -> pp ppf "%d" c                   
 end
-  
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

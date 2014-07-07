@@ -12,7 +12,7 @@ OCAMLBUILD=${OCAMLBUILD:="ocamlbuild -tag debug -classic-display \
 action () 
 {
     case $1 in
-      default)      $OCAMLBUILD useri.cmi ;;
+      default)      action backends ;;
       tests)        $OCAMLBUILD tests.otarget ;;
       doc)          shift; pkg-doc $* doc/dev-api.docdir ;;
       api-doc)      shift; pkg-doc $* doc/api.docdir ;;

@@ -58,9 +58,21 @@ end
 
 (** Application  *) 
 module App : sig
+  
+  type mode = [ `Windowed | `Fullscreen ] 
+
   type launch_context = [ `Browser | `Gui | `Terminal ]
   val pp_launch_context : Format.formatter -> launch_context -> unit 
-  type mode = [ `Windowed | `Fullscreen ] 
+
+  type backend = [ `Tsdl | `Jsoo | `Other of string ] 
+  val pp_backend : Format.formatter -> backend -> unit
+
+  type backend_scheme = [ `Sync | `Async ]
+  val pp_backend_scheme : Format.formatter -> backend_scheme -> unit 
+  val invalid_on_backend_scheme : backend_scheme -> 'a 
+
+  type cpu_count = [ `Known of int | `Unknown ]
+  val pp_cpu_count : Format.formatter -> cpu_count -> unit
 end
 
 (*---------------------------------------------------------------------------

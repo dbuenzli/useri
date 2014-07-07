@@ -7,6 +7,17 @@
 open Gg
 open React
 
+module Ev = struct
+  let ids = ref [] 
+  let release () = List.iter Dom.removeEventListener !ids
+
+  let cb node e f =
+    let h = Dom.full_handler (fun n ev -> Js.bool (f n ev)) in
+    ids := Dom.addEventListener node e h (Js.bool false) :: !ids; 
+    ()
+             
+end
+
 module Mouse = struct
   let pos : p2 signal = fst (S.create P2.o)
   let dpos : v2 event = fst (E.create ())
@@ -101,32 +112,98 @@ module Surface = struct
 end
 
 module App = struct
-  include Useri_backend_base.App
 
-  let launch_context = `Browser
-  let platform = "TODO"
-  let backend_runtime = `Async
-  let cpu_count = 0 (* TODO *)
   let prefs_path ~org ~app = failwith "TODO"
   let size : size2 signal = fst (S.create Size2.zero)
   let pos : p2 signal = fst (S.create P2.o)
   let env key ~default parse = failwith "TODO"
 
-  let mode : mode signal = fst (S.create `Windowed)
-  let mode_switch ?init e = failwith "TODO"
-  let quit : unit event = fst (E.create ())
-  let sink_event : 'a event -> unit = fun e -> failwith "TODO"
-  let sink_signal : 'a signal -> unit = fun s -> failwith "TODO"
-  let clear_sinks : unit -> unit = failwith "TODO"
-  let start : unit event = fst (E.create ())
-  let stop : unit event = fst (E.create ())
-  let init ?hidpi ?pos ?size ?name ?surface ?mode () = failwith "TODO"
-  let run_step : unit -> Time.span = fun () -> failwith "TODO"
-  let run : until:'a event -> unit = fun ~until -> failwith "TODO"
-  let release : unit -> unit = fun () -> ()
+
+  type mode = Useri_backend_base.App.mode 
+  let mode_switch ?(init = `Windowed) e =
+    let switch_mode = function 
+    | `Windowed -> `Fullscreen 
+    | `Fullscreen -> `Windowed 
+    in
+    S.accum (E.map (fun _ m -> switch_mode m) e) init
+
+  let mode_sig, set_mode_sig = S.create (S.const `Windowed)
+  let mode = S.switch ~eq:( == ) mode_sig
+
+  let quit, send_quit = E.create ()
+
+  (* Event and signal sinks *) 
+
+  type sink = Esink : 'a event -> sink | Ssink : 'a signal -> sink 
+  let sinks = ref []
+  let sink_event e = sinks := Esink e :: !sinks
+  let sink_signal s = sinks := Ssink s :: !sinks
+  let release_sinks () = 
+    let release = function 
+    | Esink e -> E.stop ~strong:true e 
+    | Ssink s -> S.stop ~strong:true s
+    in
+    List.iter release !sinks; sinks := []
+
+  (* Init, run and release *)
+
+  let init () = 
+    let send_quit _ e = send_quit (); false in
+    Ev.cb Dom_html.window Dom_html.Event.beforeunload send_quit; 
+    ()
+
+  let start, send_start = E.create ()
+  let stop, send_stop = E.create ()
+  let running = ref false
+  let send_start ?step () = 
+    if not !running then (running := true; send_start ?step ()) 
+
+  let send_stop () = send_stop (); running := false
+
+  let init ?hidpi ?pos ?size ?name ?surface ?mode () = 
+    let step = React.Step.create () in
+    init ();
+    send_start ~step ();
+    React.Step.execute step;
+    `Ok ()
+
+  let run_step () = send_start (); max_float
+  let run ?(until = E.never) () = send_start ()
+  let release ?(sinks = true) () =
+    send_stop ();
+    if sinks then release_sinks ();
+    Ev.release ();
+    ()
+
+  (* Launch context *) 
+
+  type launch_context = Useri_backend_base.App.launch_context
+  let launch_context = `Browser
+  let pp_launch_context = Useri_backend_base.App.pp_launch_context
+    
+  (* Platform and backend *)
+
+  let platform = Js.to_string (Dom_html.window ## navigator ## platform)
+  
+  type backend = Useri_backend_base.App.backend 
+  let backend = `Jsoo
+  let pp_backend = Useri_backend_base.App.pp_backend
+  
+  type backend_scheme = Useri_backend_base.App.backend_scheme 
+  let backend_scheme = `Async
+  let pp_backend_scheme = Useri_backend_base.App.pp_backend_scheme 
+
+  (* CPU count *) 
+
+  type cpu_count = Useri_backend_base.App.cpu_count 
+  let cpu_count = 
+    let n = Dom_html.window ## navigator in
+    match Js.Optdef.to_option ((Js.Unsafe.coerce n) ## hardwareConcurrency)
+    with None -> `Unknown | Some c -> `Known c
+
+  let pp_cpu_count = Useri_backend_base.App.pp_cpu_count 
+
 end
-
-
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

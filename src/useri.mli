@@ -401,34 +401,7 @@ end
 
 (** Application  *) 
 module App : sig
-
-  (** {1 Context} *) 
-
-  type launch_context = [ `Browser | `Gui | `Terminal ]
-
-  val pp_launch_context : Format.formatter -> launch_context -> unit 
-  (** [pp_launch_context ppf c] prints an unspecified representation of 
-      [c] on ppf. *) 
-
-  val launch_context : launch_context
-  (** [launch_context] is the mechanism that started the program. *)
   
-  val platform : string
-  (** [platform] is the name of the platform you are running on. *) 
-
-  val backend_runtime : [ `Sync | `Async ]
-  (** [backend_runtime] is the backend's runtime kind: 
-      {ul 
-      {- [`Sync], the runtime is synchronous the client of the library 
-         is in charge of running the event loop by using {!run_step} 
-         or {!run}.}
-      {- [`Async], the runtime is asynchronous, there's an inversion 
-         of control. After calling {!init} the client doesn't need
-         to do anything.}} *)
-
-  val cpu_count : int 
-  (** [cpu_count] is the number of CPU available. *) 
-
   val prefs_path : org:string -> app:string -> 
     [`Ok of string | `Error of string ]
   (** [TODO] this should used the app name automatically. 
@@ -460,29 +433,7 @@ module App : sig
   (** [mode_switch init e] has value [init] (defaults to `Windowed) and 
       switches mode on each occurence of [e]. *) 
 
-  (** {1 User requested quit} *)
-
-  val quit : unit event
-  (** [quit] occurs whenever the user requested to quit. *)
-
-  (** {1 Event and signal sinks} *) 
-
-  val sink_event : 'a event -> unit 
-  (** [sink_event e] keeps a reference on [e] until the app {!exit}s. *)
-   
-  val sink_signal : 'a signal -> unit 
-  (** [sink_signal s] keeps a reference on [s] until the app {!exit}s. *) 
-
-  val clear_sinks : unit -> unit
-  (** Clears the sink references and performs a full garbage collection. *) 
-
   (** {1 Init, run and release} *)
-
-  val start : unit event
-  (** [start] occurs at the end of {!init}. *)
-
-  val stop : unit event 
-  (** [stop] occurs when {!run} returns. *)
 
   val init :
     ?hidpi:bool -> 
@@ -496,21 +447,151 @@ module App : sig
       {ul 
       {- [hidpi] if [true] (default) tries to get a high-dpi surface.}
       {- [mode], defines the application mode and the {!value:mode} signal, 
-         defaults to [S.const `Windowed].}}. *)
+         defaults to [S.const `Windowed].}} *)
 
   val run_step : unit -> Time.span 
   (** [run_step ()] gather as much user input as possible and returns 
-      the maximal timespan after which it should be called again. *)
+      the maximal timespan after which {!run_step} should be called again. *)
   
-  val run : until:'a event -> unit
-  (** [run ~until] invokes {!run_step} repeatedly and blocks until 
-      the first occurence of [until]. *)
+  val run : ?until:'a event -> unit -> unit
+  (** [run until] depends on the {{!backend_scheme}backend scheme}:
+      {ul 
+      {- [`Sync] invokes {!run_step} repeatedly and blocks until 
+         the first occurence of [until] (defaults to {!quit}).
+         After {!run} returned it can be called again.}
+      {- [`Async] returns immediately, [until] is irrelevant.}} *)
 
-  val release : unit -> unit 
-  (** [release ()] makes {!stop} occur and then reclaims resources, 
-      once the function returns no event will occur and signals 
-      won't update anymore. *)
+  val release : ?sinks:bool -> unit -> unit 
+  (** [release sinks ()] does the following:
+      {ol 
+      {- Makes the {!stop} event occur.}
+      {- If [sinks] is [true] (default), calls {!release_sinks}.}
+      {- Reclaims other resources}}
+      
+      After a {!release} it should be possible to {!init} again. *)
+
+  val start : unit event
+  (** [start] occurs the first time either {!run_step} or {!run} is 
+      called. *)
+
+  val stop : unit event 
+  (** [stop] occurs when {!release} starts. *)
+
+  (** {1 User requested quit} *)
+
+  val quit : unit event
+  (** [quit] occurs whenever the user requested to quit. The meaning
+      depends on the {{!backend}backend}:
+      {ul 
+      {- [`Tsdl], this is only a hint, e.g. the last window 
+         was closed or a platform dependent way of quitting 
+         applications was invoked}
+      {- [`Jsoo], the browser window is closing and it's your 
+         last chance to peform something}}. *)
+
+  (** {1 Event and signal sinks} *) 
+
+  val sink_event : 'a event -> unit 
+  (** [sink_event e] keeps a reference on [e] until the app {!exit}s. *)
+   
+  val sink_signal : 'a signal -> unit 
+  (** [sink_signal s] keeps a reference on [s] until the app {!exit}s. *) 
+
+  val release_sinks : unit -> unit
+  (** Stops and release sink references. In the [`Jsoo] {{!backend}backend}
+      stops are {{!React.strongstop}strong}. *)
+
+  (** {1 Launch context} *) 
+
+  type launch_context = [ `Browser | `Gui | `Terminal ]
+    
+  val launch_context : launch_context
+  (** [launch_context] is the mechanism that started the program. *)
+
+  val pp_launch_context : Format.formatter -> launch_context -> unit 
+  (** [pp_launch_context ppf c] prints an unspecified representation of 
+      [c] on [ppf]. *) 
+
+  (** {1 Platform and backend} *) 
+
+  val platform : string
+  (** [platform] is the name of the platform you are running on. 
+
+      {b Warning.} Do not expect different backend to report the same
+      platform with the same string. *)
+
+  type backend = [ `Tsdl | `Jsoo | `Other of string ] 
+  (** The type for [Useri]'s backends. *) 
+
+  val backend : backend 
+  (** [backend] is [Useri]'s current backend. *)
+
+  val pp_backend : Format.formatter -> backend -> unit
+  (** [pp_backend ppf b] prints an unspecified representation of 
+      [c] on [ppf]. *)
+
+  type backend_scheme = [ `Sync | `Async ]
+  (** The type for backend scheme.
+      {ul 
+      {- [`Sync], the backend is synchronous the client of the library 
+         is in charge of running the event loop by using {!run_step} 
+         or {!run}.}
+      {- [`Async], the backend is asynchronous, there's an inversion 
+         of control, the call to {!run} won't block.}} *)
+
+  val backend_scheme : [ `Sync | `Async ]
+  (** [backend_scheme] is the [Useri]'s current backend's scheme. *)
+
+  val pp_backend_scheme : Format.formatter -> backend_scheme -> unit 
+  (** [pp_backend_scheme ppf bs] prints and unspecified representation of
+      [bs] on [ppf]. *)
+                        
+  (** {1 CPU count} *)
+    
+  type cpu_count = [ `Known of int | `Unknown ]
+  (** The type for CPU counts. *) 
+
+  val cpu_count : cpu_count 
+  (** [cpu_count] is the number of CPU available. *)
+
+  val pp_cpu_count : Format.formatter -> cpu_count -> unit 
+  (** [pp_cpu_count ppf c] prints an unspecified representation of [c]
+      on [ppf]. *)
 end
+
+(** 
+   
+   {1 Minimal example} 
+
+   This minimal example can be used on both synchronous 
+   and asynchronous backends, note however that in the latter
+   {!App.release} is not called. 
+{[
+  
+]}
+   
+   
+
+
+   {1:cooperate Integration with cooperative concurency}
+
+    A good way of managing side-effects at the boundaries of your
+    functional reactive system is to use a cooperative concurency
+    library and convert event occurences and signal changes to
+    yielding futures/threads (to avoid the problem of forbidden
+    recursive primitive feedback) and convert futures/threads to a
+    primitive event with a single occurence.
+
+    You will need however need to cooperate with [Useri]'s event 
+    loop and give it a high priority as the ability to interact 
+    should {b never} take over a long running computation.
+
+    The following code shows how to do that with Lwt and Fut
+{[
+]}
+*) 
+
+
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

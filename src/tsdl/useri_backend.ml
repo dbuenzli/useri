@@ -642,27 +642,6 @@ module Window = struct
 end
 
 module App = struct
- 
-  type launch_context = [ `Browser | `Gui | `Terminal ]                        
-  let pp_launch_context ppf lc = Format.fprintf ppf begin match lc with 
-    | `Browser -> "browser"
-    | `Gui -> "gui" 
-    | `Terminal -> "terminal" 
-    end
-
-  let launch_context =
-    let osx_psn a = String.length a > 5 && String.sub a 0 5 = "-psn_" in 
-    try 
-      for i = 0 to Array.length Sys.argv - 1 do 
-        if osx_psn Sys.argv.(i) then raise Exit 
-      done;
-      `Terminal
-    with 
-    Exit -> `Gui
-
-  let platform = Sdl.get_platform () 
-  let backend_runtime = `Sync
-  let cpu_count = Sdl.get_cpu_count ()
 
   let prefs_path ~org ~app = Sdl.get_pref_path ~org ~app
   let size = size 
@@ -673,8 +652,7 @@ module App = struct
 
   (* Mode *) 
 
-  type mode = [ `Windowed | `Fullscreen ] 
-
+  type mode = Useri_backend_base.App.mode 
   let mode_switch ?(init = `Windowed) e =
     let switch_mode = function 
     | `Windowed -> `Fullscreen 
@@ -682,7 +660,6 @@ module App = struct
     in
     S.accum (E.map (fun _ m -> switch_mode m) e) init
            
-
   let (mode_sig : mode signal signal), set_mode_sig = 
     S.create (S.const `Windowed)    
 
@@ -711,18 +688,34 @@ module App = struct
   let sinks = ref []
   let sink_event e = sinks := Esink e :: !sinks
   let sink_signal s = sinks := Ssink s :: !sinks
-  let clear_sinks () = sinks := []; Gc.full_major ()
+  let release_sinks () = 
+    let release = function 
+    | Esink e -> E.stop e 
+    | Ssink s -> S.stop s
+    in
+    List.iter release !sinks; sinks := []
 
   (* Init, run and exit *)
 
   let start, send_start = E.create ()
-  let (stop : unit event), send_stop = E.create ()    
-  let release () = match !app with
-  | None -> ()
-  | Some (win, ctx) -> 
-      ignore (Window.destroy win ctx); 
-      Sdl.quit (); 
-      ()
+  let stop, send_stop = E.create ()
+
+  let running = ref false
+  let ensure_start_sent ?step () = 
+    if not !running then (running := true; send_start ?step ()) 
+
+  let send_stop ?step () = send_stop ?step (); running := false
+
+  let start, send_start = E.create ()
+  let release ?(sinks = true) () = 
+    send_stop ();
+    if sinks then release_sinks ();
+    match !app with
+    | None -> ()
+    | Some (win, ctx) -> 
+        ignore (Window.destroy win ctx); 
+        Sdl.quit (); 
+        ()
 
   let e_some = ref None  
 
@@ -744,8 +737,7 @@ module App = struct
     Drop.sdl_init step;
     React.Step.execute step;
     let step = React.Step.create () in
-    Surface.send_simple_refresh ~step (); 
-    send_start ~step ();
+    Surface.send_simple_refresh ~step ();
     React.Step.execute step;
     (match !app with None -> () | Some (win, _) -> Sdl.show_window win);
     `Ok ()
@@ -772,21 +764,57 @@ module App = struct
     | `Drop_file -> Drop.sdl_file e
     | _ -> ()
 
-
   let run_step () = 
+    ensure_start_sent ();
     while Sdl.poll_event !e_some do do_event !e_some; done;
     let now = Time.tick_now () in 
     let deadline = Time.Line.execute Time.line now in
     Float.fmin 10e-3 (Time.tick_diff_secs deadline now)
 
-  let rec run ~until = 
-    let rec loop stop = 
+  let rec run ?until () = 
+    let rec loop stop =
       let t = run_step () in 
       Sdl.delay (Int32.of_float (t *. 1000.));
       if S.value stop then () else loop stop
     in
-    loop (S.hold false (E.stamp until true))
+    let stop = match until with 
+    | Some e -> E.stamp e true 
+    | None -> E.stamp quit true 
+    in
+    ensure_start_sent ();
+    loop (S.hold false stop)
 
+  (* Launch context *) 
+
+  type launch_context = Useri_backend_base.App.launch_context
+  let pp_launch_context = Useri_backend_base.App.pp_launch_context
+  let launch_context =
+    (* FIXME is there something for Linux ? *) 
+    let osx_psn a = String.length a > 5 && String.sub a 0 5 = "-psn_" in 
+    try 
+      for i = 0 to Array.length Sys.argv - 1 do 
+        if osx_psn Sys.argv.(i) then raise Exit 
+      done;
+      `Terminal
+    with Exit -> `Gui
+    
+  (* Platform and backend *)
+
+  let platform = Sdl.get_platform () 
+  
+  type backend = Useri_backend_base.App.backend
+  let backend = `Tsdl
+  let pp_backend = Useri_backend_base.App.pp_backend
+  
+  type backend_scheme = Useri_backend_base.App.backend_scheme
+  let backend_scheme = `Sync
+  let pp_backend_scheme = Useri_backend_base.App.pp_backend_scheme
+
+  (* CPU count *) 
+
+  type cpu_count = Useri_backend_base.App.cpu_count
+  let cpu_count = `Known (Sdl.get_cpu_count ())
+  let pp_cpu_count = Useri_backend_base.App.pp_cpu_count
 end
   
 

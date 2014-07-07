@@ -10,11 +10,14 @@
 
 <src/jsoo> : include
 <src/jsoo/*> : package(gg), package(react), package(js_of_ocaml), \
-               package(js_of_ocaml.syntax)
+               package(js_of_ocaml.syntax), syntax(camlp4o)
 
+<**/*.js> : weak_js
 <test> : include
 <test/*> : package(gg), package(react)
+<test/min.byte> : package(js_of_ocaml), use_useri_jsoo, use_useri
+<test/min.native> : package(tsdl), use_useri_tsdl, use_useri
 <test/*tsdl*> : package(tsdl), use_useri_tsdl
-<test/*jsoo*> : package(js_of_ocaml), use_useri_jsoo
+<test/*jsoo*> : package(js_of_ocaml), use_useri_jsoo, use_useri, weak_js
 <test/*tsdl*fut*> : thread, package(fut.select), package(fut.r), package(fut)
-<test/*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
+<test/*tsdl*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
