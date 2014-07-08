@@ -7,9 +7,11 @@
 open Gg
 open React
 
-let warn fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@\n%!") 
-let warn_time () = 
-  warn "performance.now () missing, using Date.now ()"  
+let log  fmt = Format.printf  (fmt ^^ "@\n%!")
+let err  fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@.")
+let warn fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@.") 
+let warn_time () = warn "performance.now () missing, using Date.now ()"  
+let warn_drag () = warn "Drag.file event not supported" 
 
 module Ev = struct
   let ids = ref [] 
@@ -19,7 +21,6 @@ module Ev = struct
     let h = Dom.full_handler (fun n ev -> Js.bool (f n ev)) in
     ids := Dom.addEventListener node e h (Js.bool false) :: !ids; 
     ()
-             
 end
 
 module Mouse = struct
@@ -63,7 +64,51 @@ module Text = struct
 end
 
 module Drop = struct
-  let file : string event = fst (E.create ())
+
+  let file, send_file = E.create () 
+
+  let read_file f = 
+    let r = jsnew File.fileReader () in 
+    let name = Js.to_string (f ## name) in
+    let onload _ = 
+      let content = 
+        match Js.Opt.to_option (File.CoerceTo.string (r ## result)) with 
+        | None -> assert false 
+        | Some str -> Js.to_string str
+      in
+      Sys_js.register_file ~name ~content;
+      send_file name; 
+      Js._false
+    in
+    let onerror _ = err "while loading file %s" name; Js._false in
+    r ## onload <- Dom.handler onload;
+    r ## onerror <- Dom.handler onerror;
+    r ## readAsBinaryString (f);
+    ()
+
+  let drop _ e = 
+    Dom.preventDefault e;
+    let files = e ## dataTransfer ## files in 
+    for i = 0 to files ## length - 1 do 
+      match Js.Opt.to_option (files ## item(i)) with 
+      | None -> assert false 
+      | Some file -> read_file file
+    done;
+    false
+
+  let dd_support () = 
+    let d = Dom_html.(createDiv document) in 
+    Js.Optdef.test ((Js.Unsafe.coerce d) ## ondragenter) && 
+    Js.Optdef.test ((Js.Unsafe.coerce d) ## ondragover) &&
+    Js.Optdef.test ((Js.Unsafe.coerce d) ## ondrop)
+    
+  let init () = 
+    if not (dd_support ()) then warn_drag () else
+    let stop _ e = Dom.preventDefault e; false in
+    Ev.cb Dom_html.window Dom_html.Event.dragenter stop; 
+    Ev.cb Dom_html.window Dom_html.Event.dragover stop;
+    Ev.cb Dom_html.window Dom_html.Event.drop drop
+
 end
 
 module Time = struct
@@ -188,6 +233,7 @@ module App = struct
   let init () = 
     let send_quit _ _ = send_quit (); false in
     Ev.cb Dom_html.window Dom_html.Event.unload send_quit; 
+    Drop.init ();
     ()
 
   let start, send_start = E.create ()

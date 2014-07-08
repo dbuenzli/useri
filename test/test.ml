@@ -67,6 +67,24 @@ let test_text set_clipboard =
   | Some s as c -> log "Setting clipboard to %S" s; Text.set_clipboard c
   | None -> ()
 
+let test_drop () =
+  let mname = "Drop" in 
+  let read file = 
+    try
+      let ic = open_in file in 
+      let len = in_channel_length ic in 
+      let s = String.create len in 
+      really_input ic s 0 len; close_in ic; `Ok s
+    with Sys_error e -> `Error e
+  in
+  let log_read file = match read file with 
+  | `Ok s -> log "dropped file contents: %S" s 
+  | `Error e -> log "dropped file, error while reading: %s" e 
+  in
+  trace_e pp_str mname "filename" Drop.file; 
+  App.sink_event (E.map log_read Drop.file); 
+  ()
+ 
 let test_time () = 
   let mname = "Time" in 
   log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
@@ -94,6 +112,7 @@ let test mods set_clipboard =
   if do_test `Mouse then test_mouse ();
   if do_test `Key   then test_key (); 
   if do_test `Text  then test_text set_clipboard; 
+  if do_test `Drop  then test_drop (); 
   if do_test `Time  then test_time ();
   if do_test `App   then test_app ();
   ()
@@ -112,6 +131,7 @@ let parse_args_and_setup () =
     "-mouse", add `Mouse, " test the Mouse module"; 
     "-key",   add `Key,   " test the Key module"; 
     "-text",  add `Text,  " test the Text module";
+    "-drop",  add `Drop,  " test the Drop module";
     "-time",  add `Time,  " test the Time module";
     "-set-clipboard", Arg.String (fun s -> set_clipboard := Some s), 
     "MSG set clipboard content to MSG."; 

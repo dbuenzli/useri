@@ -20,6 +20,7 @@ let main () =
   | `Ok () ->
       Test.test_app ();
       Test.test_time ();
+      Test.test_drop ();
       App.run (); 
       App.sink_event (E.map App.release App.quit)
 

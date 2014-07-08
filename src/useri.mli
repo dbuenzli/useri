@@ -4,7 +4,7 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** Declarative user interaction with React.
+(** Declarative user interaction with {!React}.
 
     [Useri] gathers user input as {!React} signals and events. 
 
@@ -179,7 +179,11 @@ module Drop : sig
   (** {1 Files} *)
 
   val file : string event
-  (** [file] occurs whenever a file is dropped on the application. *)
+  (** [file] occurs whenever a file is dropped on the application.
+
+      {b Note.} Once the event occurs in the [`Jsoo]
+      {{!App.backend}backend}, the file can be opened an read or
+      looked up with {!Sys_js.file_content}. *) 
 end
 
 (** Time. 
@@ -566,8 +570,7 @@ end
    {1 Minimal example} 
 
    This minimal example can be used on both synchronous 
-   and asynchronous backends, note however that in the latter
-   {!App.release} is not called. 
+   and asynchronous backends. 
 {[
   
 ]}

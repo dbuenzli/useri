@@ -4,16 +4,21 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
+(** 
+
+   * tsdl backend, compile with: 
+     ocamlfind ocamlopt -package tsdl,useri.tsdl,useri \
+                        -linkpgk -o min.native min.ml
+   
+   * js_of_ocaml backend, compile with: 
+     ocamlfind ocamlc -package useri.jsoo, useri \
+                      -linkpkg -o min.byte min.ml \
+     && js_of_ocaml min.byte
+  *)
+
 open Gg
 open React
 open Useri
-
-(** Compile with 
-    ocamlfind ocamlc \
-    -package useri.jsoo, useri \
-    -linkpkg -o min.byte min.ml \
-    && js_of_ocaml min.byte
-  *)
 
 let main () = 
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
