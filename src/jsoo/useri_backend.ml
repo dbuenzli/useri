@@ -186,8 +186,8 @@ module App = struct
   (* Init, run and release *)
 
   let init () = 
-    let send_quit _ e = send_quit (); false in
-    Ev.cb Dom_html.window Dom_html.Event.beforeunload send_quit; 
+    let send_quit _ _ = send_quit (); false in
+    Ev.cb Dom_html.window Dom_html.Event.unload send_quit; 
     ()
 
   let start, send_start = E.create ()
