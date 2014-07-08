@@ -1,3 +1,4 @@
+* Time.span rather use ms ? 
 * Add locale lookup
 * Add open_uri
 * Make it independent of Fut.

@@ -7,6 +7,10 @@
 open Gg
 open React
 
+let warn fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@\n%!") 
+let warn_time () = 
+  warn "performance.now () missing, using Date.now ()"  
+
 module Ev = struct
   let ids = ref [] 
   let release () = List.iter Dom.removeEventListener !ids
@@ -63,13 +67,47 @@ module Drop = struct
 end
 
 module Time = struct
-  include Useri_backend_base.Time
 
-  let elapsed : unit -> span = fun () -> failwith "TODO"
-  let tick : span -> span event = fun span -> failwith "TODO"
-  type counter = unit
-  let counter : unit -> counter = fun () -> ()
-  let value : counter -> span = fun () -> failwith "TODO"
+  (* Time span *) 
+
+  type span = Useri_backend_base.Time.span 
+
+  (* Passing time *) 
+
+  let tick_now = 
+    let date_now () = (jsnew Js.date_now () ## getTime ()) /. 1000. in
+    let perf_now () = 
+      (Js.Unsafe.coerce Dom_html.window) ## performance ## now () /. 1000. 
+    in
+    let perf = (Js.Unsafe.coerce Dom_html.window) ## performance in 
+    match Js.Optdef.to_option perf with 
+    | None -> warn_time (); date_now 
+    | Some p ->
+        match (Js.Unsafe.coerce p) ## now with
+        | None -> warn_time (); date_now 
+        | Some n -> perf_now
+
+  let start = tick_now ()
+  let elapsed () = tick_now () -. start 
+  let tick span = 
+    let e, send_e = E.create () in 
+    let start = tick_now () in
+    let action () = send_e (tick_now () -. start) in 
+    let ms = span *. 1000. in 
+    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms)); 
+    e
+    
+  (* Counting time *) 
+    
+  type counter = span 
+  let counter () = tick_now () 
+  let value c = tick_now () -. c 
+
+  (* Pretty printing time *)
+                
+  let pp_s = Useri_backend_base.Time.pp_s
+  let pp_ms = Useri_backend_base.Time.pp_ms
+  let pp_mus = Useri_backend_base.Time.pp_mus
 end
 
 module Human = struct

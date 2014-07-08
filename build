@@ -20,7 +20,7 @@ action ()
       clean)        $OCAMLBUILD -clean ;;
       jsoo)         shift; 
                     $OCAMLBUILD $1.js $1.html
-                    reload-browser "http://`hostname`/useri/$1.html"
+                    reload-browser "http://`hostname`/useri/test/$1.html"
                     ;;
       *)            $OCAMLBUILD $* ;;
     esac

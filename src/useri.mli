@@ -182,7 +182,9 @@ module Drop : sig
   (** [file] occurs whenever a file is dropped on the application. *)
 end
 
-(** Time. *)
+(** Time. 
+
+    [Time] gives access to a simple monotonic clock. *)
 module Time : sig
 
   (** {1 Time span} *) 

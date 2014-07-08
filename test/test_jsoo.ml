@@ -18,10 +18,10 @@ let main () =
   match App.init ~hidpi ~size ~mode () with 
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
-      Test.trace_app ();
-      match App.backend_scheme with 
-      | `Sync -> App.run ~until:App.quit; exit 0
-      | `Async -> (* App.sink_event (E.map App.release App.quit) *) ()
+      Test.test_app ();
+      Test.test_time ();
+      App.run (); 
+      App.sink_event (E.map App.release App.quit)
 
 let () = main ()  
 

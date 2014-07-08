@@ -29,7 +29,7 @@ let trace_s pp mname sname s =
   let log v = log "@[%s.%s =@ %a@]" mname sname pp v in
   App.sink_signal (S.trace log s)
 
-let trace_mouse () = 
+let test_mouse () = 
   let mname = "Mouse" in 
   trace_s V2.pp mname "pos" Mouse.pos;
   trace_e V2.pp mname "dpos" Mouse.dpos;
@@ -44,7 +44,7 @@ let trace_mouse () =
   trace_e V2.pp mname "right_up" Mouse.right_up;
   ()
 
-let trace_key () = 
+let test_key () = 
   let mname = "Key" in
   trace_e Key.pp_sym mname "any_down" Key.any_down; 
   trace_e Key.pp_sym mname "any_repeat" Key.any_repeat;
@@ -55,7 +55,7 @@ let trace_key () =
   trace_s pp_bool mname "alt" Key.alt; 
   ()
   
-let trace_text set_clipboard = 
+let test_text set_clipboard = 
   let mname = "Text" in
   Text.set_input_enabled true;
   trace_s pp_bool mname "input_enabled" Text.input_enabled;
@@ -66,8 +66,18 @@ let trace_text set_clipboard =
   match set_clipboard with 
   | Some s as c -> log "Setting clipboard to %S" s; Text.set_clipboard c
   | None -> ()
+
+let test_time () = 
+  let mname = "Time" in 
+  log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
+  let c = Time.counter () in
+  let log_tick v = 
+    log "Tick ! spanned:%a counter:%a" Time.pp_s v Time.pp_s (Time.value c)
+  in
+  App.sink_event (E.map log_tick (Time.tick 1.));
+  ()
   
-let trace_app () = 
+let test_app () = 
   let mname = "App" in 
   trace_e pp_unit mname "start" App.start;
   trace_e pp_unit mname "stop" App.stop;
@@ -78,12 +88,14 @@ let trace_app () =
   trace_v App.pp_cpu_count mname "cpu_count" App.cpu_count;
   ()
 
+
 let test mods set_clipboard = 
-  let do_trace m = mods = [] || List.mem m mods in
-  if do_trace `Mouse then trace_mouse ();
-  if do_trace `Key   then trace_key (); 
-  if do_trace `Text  then trace_text set_clipboard; 
-  if do_trace `App   then trace_app ();
+  let do_test m = mods = [] || List.mem m mods in
+  if do_test `Mouse then test_mouse ();
+  if do_test `Key   then test_key (); 
+  if do_test `Text  then test_text set_clipboard; 
+  if do_test `Time  then test_time ();
+  if do_test `App   then test_app ();
   ()
   
 let parse_args_and_setup () =
@@ -97,9 +109,10 @@ let parse_args_and_setup () =
   let add v = Arg.Unit (fun () -> mods := v :: !mods) in 
   let pos p = raise (Arg.Bad ("don't know what to to with " ^ p)) in
   let options = [ 
-    "-mouse", add `Mouse, " trace the Mouse module"; 
-    "-key",   add `Key,   " trace the Key module"; 
-    "-text",  add `Text,  " trace the Text module";
+    "-mouse", add `Mouse, " test the Mouse module"; 
+    "-key",   add `Key,   " test the Key module"; 
+    "-text",  add `Text,  " test the Text module";
+    "-time",  add `Time,  " test the Time module";
     "-set-clipboard", Arg.String (fun s -> set_clipboard := Some s), 
     "MSG set clipboard content to MSG."; 
   ]
