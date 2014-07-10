@@ -265,12 +265,18 @@ end
 (* File drag and drop *)
 
 module Drop = struct
+  type file_ready_error
   let file, send_file = E.create ()
+  let file_ready, send_file_ready  = E.create ()
 
   let sdl_file e = 
     let f = Sdl.Event.drop_file_file e in 
-    Sdl.Event.drop_file_free e; 
-    send_file f
+    Sdl.Event.drop_file_free e;
+    let step = React.Step.create () in
+    send_file ~step f; 
+    send_file_ready ~step (`Ok f); 
+    React.Step.execute step; 
+    ()
 
   let sdl_init step =
     Sdl.set_event_state Sdl.Event.drop_file Sdl.enable

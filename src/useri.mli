@@ -176,14 +176,32 @@ end
 (** User drag and drop. *)
 module Drop : sig
 
-  (** {1 Files} *)
+  (** {1 Files} 
+
+      To accomodate different backends, a file drop interaction occurs
+      through two different, but potentially simultaneous event
+      occurences. First {!file} occurs with a filename. Second,
+      whenever the corresponding file is ready to be read from,
+      {!file_ready} occurs with the filename (or maybe an error).
+      Don't forget to provide some kind of feedback if the user feels
+      {!Human.interrupted} between the two occurences. *)
+
+  type file_ready_error 
+  (** The type for {!file_ready} event errors. This remains abstract for now 
+      the results of the [`Jsoo] backend being unclear. *)
 
   val file : string event
-  (** [file] occurs whenever a file is dropped on the application.
+  (** [file] occurs whenever a file is dropped on the application. *)
 
-      {b Note.} Once the event occurs in the [`Jsoo]
-      {{!App.backend}backend}, the file can be opened an read or
-      looked up with {!Sys_js.file_content}. *) 
+  val file_ready : 
+    [ `Ok of string 
+    | `Error of string * file_ready_error ] event
+  (** [file_ready] occurs with:
+      {ul 
+      {- [`Ok n] if a previous or simultaneous {!file} event occured 
+         with name [n] and the file is now available for reading.}
+      {- [`Error (n, e)] if a previous or simultanous {!file} event occured 
+         with name [n] and the file is not available because of [e]}} *)
 end
 
 (** Time. 

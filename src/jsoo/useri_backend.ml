@@ -8,7 +8,6 @@ open Gg
 open React
 
 let log  fmt = Format.printf  (fmt ^^ "@\n%!")
-let err  fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@.")
 let warn fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@.") 
 let warn_time () = warn "performance.now () missing, using Date.now ()"  
 let warn_drag () = warn "Drag.file event not supported" 
@@ -65,7 +64,9 @@ end
 
 module Drop = struct
 
-  let file, send_file = E.create () 
+  type file_ready_error = unit
+  let file, send_file = E.create ()
+  let file_ready, send_file_ready = E.create () 
 
   let read_file f = 
     let r = jsnew File.fileReader () in 
@@ -77,10 +78,10 @@ module Drop = struct
         | Some str -> Js.to_string str
       in
       Sys_js.register_file ~name ~content;
-      send_file name; 
+      send_file_ready (`Ok name); 
       Js._false
     in
-    let onerror _ = err "while loading file %s" name; Js._false in
+    let onerror _ = send_file_ready (`Error (name, ())); Js._false in
     r ## onload <- Dom.handler onload;
     r ## onerror <- Dom.handler onerror;
     r ## readAsBinaryString (f);
@@ -92,7 +93,7 @@ module Drop = struct
     for i = 0 to files ## length - 1 do 
       match Js.Opt.to_option (files ## item(i)) with 
       | None -> assert false 
-      | Some file -> read_file file
+      | Some file -> send_file (Js.to_string (file ## name)); read_file file
     done;
     false
 
@@ -201,7 +202,6 @@ module App = struct
   let pos : p2 signal = fst (S.create P2.o)
   let env key ~default parse = failwith "TODO"
 
-
   type mode = Useri_backend_base.App.mode 
   let mode_switch ?(init = `Windowed) e =
     let switch_mode = function 
@@ -211,7 +211,7 @@ module App = struct
     S.accum (E.map (fun _ m -> switch_mode m) e) init
 
   let mode_sig, set_mode_sig = S.create (S.const `Windowed)
-  let mode = S.switch ~eq:( == ) mode_sig
+  let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
 
   let quit, send_quit = E.create ()
 

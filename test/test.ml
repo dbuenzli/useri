@@ -69,20 +69,28 @@ let test_text set_clipboard =
 
 let test_drop () =
   let mname = "Drop" in 
+  let pp_fready ppf = function 
+  | `Ok n -> pp ppf "`Ok %S" n 
+  | `Error (n, e) -> pp ppf "`Error (%S, _)" n 
+  in
   let read file = 
     try
-      let ic = open_in file in 
-      let len = in_channel_length ic in 
-      let s = String.create len in 
+      let ic = open_in file in
+      let len = in_channel_length ic in
+      let s = String.create len in
       really_input ic s 0 len; close_in ic; `Ok s
     with Sys_error e -> `Error e
   in
-  let log_read file = match read file with 
-  | `Ok s -> log "dropped file contents: %S" s 
-  | `Error e -> log "dropped file, error while reading: %s" e 
+  let log_read file = match file with
+  | `Error (file, _) -> log "file drop error for %s" file
+  | `Ok file ->
+      match read file with 
+      | `Ok s -> log "%s file drop contents: %S" file s 
+      | `Error e -> log "%s: %s" file e 
   in
-  trace_e pp_str mname "filename" Drop.file; 
-  App.sink_event (E.map log_read Drop.file); 
+  trace_e pp_str mname "file" Drop.file;
+  trace_e pp_fready mname "file_ready" Drop.file_ready;
+  App.sink_event (E.map log_read Drop.file_ready); 
   ()
  
 let test_time () = 
