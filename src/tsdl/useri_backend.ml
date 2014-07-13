@@ -453,6 +453,11 @@ let drawable_size () = match !app with
 
 module Surface = struct
 
+  module Gl = Useri_backend_base.Surface.Gl
+
+  type kind = Useri_backend_base.Surface.kind
+  type anchor = unit
+
   (* Properties *) 
 
   let size, set_size = S.create Size2.unit    
@@ -531,77 +536,48 @@ module Surface = struct
     then (anim_add a; start_refreshes (Time.tick_now ()); s)
     else (anim_add a; s)
     
-  (* Specification *) 
-
-  type colors = [ `RGBA_8888 | `RGB_565 ]
-  type depth = [ `D_24 | `D_16 ]
-  type stencil = [ `S_8 ]
-  type spec = 
-    { share : bool; 
-      accelerated : bool option; 
-      multisample : int option; 
-      doublebuffer : bool; 
-      stereo : bool; 
-      srgb : bool; 
-      colors : colors; 
-      depth : depth option; 
-      stencil : stencil option; 
-      gl : int * int; }
-
-  let spec
-      ?(share = false)
-      ?(accelerated = None)
-      ?(multisample = Some 8)
-      ?(doublebuffer = true)
-      ?(stereo = false)
-      ?(srgb = true)
-      ?(colors = `RGBA_8888) 
-      ?(depth = Some `D_24)
-      ?(stencil = None)
-      ~gl () =
-    { share; accelerated; multisample; doublebuffer; stereo; srgb; colors; 
-      depth; stencil; gl }
-
-  let sdl_setup c = 
-    let bool b = if b then 1 else 0 in
-    let ms_buffers, ms_samples = match c.multisample with 
-    | None -> 0, 0
-    | Some ms_samples -> 1, ms_samples 
-    in
-    let rsize, gsize, bsize, asize = match c.colors with 
-    | `RGBA_8888 -> 8, 8, 8, 8
-    | `RGB_565 -> 5, 6, 5, 0
-    in
-    let dsize = match c.depth with 
-    | None -> 0 
-    | Some `D_16 -> 18
-    | Some `D_24 -> 24
-    in
-    let ssize = match c.stencil with 
-    | None -> 0 
-    | Some `S_8 -> 8 
-    in
-    let set a v = Sdl.gl_set_attribute a v in
-    let accelerated () = match c.accelerated with 
-    | None -> `Ok ()
-    | Some a -> set Sdl.Gl.accelerated_visual (bool a) 
-    in
-    set Sdl.Gl.share_with_current_context (bool c.share)        
-    >>= fun () -> accelerated ()                                              
-    >>= fun () -> set Sdl.Gl.multisamplebuffers ms_buffers                    
-    >>= fun () -> set Sdl.Gl.multisamplesamples ms_samples                    
-    >>= fun () -> set Sdl.Gl.doublebuffer (bool c.doublebuffer)               
-    >>= fun () -> set Sdl.Gl.stereo (bool c.stereo)                           
-    >>= fun () -> set Sdl.Gl.framebuffer_srgb_capable (bool c.srgb)           
-    >>= fun () -> set Sdl.Gl.red_size rsize                                   
-    >>= fun () -> set Sdl.Gl.green_size gsize                                 
-    >>= fun () -> set Sdl.Gl.blue_size bsize                                  
-    >>= fun () -> set Sdl.Gl.alpha_size asize                                 
-    >>= fun () -> set Sdl.Gl.depth_size dsize                                 
-    >>= fun () -> set Sdl.Gl.stencil_size ssize                               
-    >>= fun () -> set Sdl.Gl.context_profile_mask Sdl.Gl.context_profile_core 
-    >>= fun () -> set Sdl.Gl.context_major_version (fst c.gl)                 
-    >>= fun () -> set Sdl.Gl.context_minor_version (snd c.gl)
+  let sdl_setup = function 
+  | `Other -> `Ok ()
+  | `Gl c ->
+      let bool b = if b then 1 else 0 in
+      let ms_buffers, ms_samples = match c.Gl.multisample with 
+      | None -> 0, 0
+      | Some ms_samples -> 1, ms_samples 
+      in
+      let rsize, gsize, bsize, asize = match c.Gl.colors with 
+      | `RGBA_8888 -> 8, 8, 8, 8
+      | `RGB_565 -> 5, 6, 5, 0
+      in
+      let dsize = match c.Gl.depth with 
+      | None -> 0 
+      | Some `D_16 -> 18
+      | Some `D_24 -> 24
+      in
+      let ssize = match c.Gl.stencil with 
+      | None -> 0 
+      | Some `S_8 -> 8 
+      in
+      let set a v = Sdl.gl_set_attribute a v in
+      let accelerated () = match c.Gl.accelerated with 
+      | None -> `Ok ()
+      | Some a -> set Sdl.Gl.accelerated_visual (bool a) 
+      in
+      set Sdl.Gl.share_with_current_context (bool true)        
+      >>= fun () -> accelerated ()                                              
+      >>= fun () -> set Sdl.Gl.multisamplebuffers ms_buffers                    
+      >>= fun () -> set Sdl.Gl.multisamplesamples ms_samples                    
+      >>= fun () -> set Sdl.Gl.doublebuffer (bool c.Gl.doublebuffer)
+      >>= fun () -> set Sdl.Gl.stereo (bool c.Gl.stereo)
+      >>= fun () -> set Sdl.Gl.framebuffer_srgb_capable (bool c.Gl.srgb)
+      >>= fun () -> set Sdl.Gl.red_size rsize                                 
+      >>= fun () -> set Sdl.Gl.green_size gsize        
+      >>= fun () -> set Sdl.Gl.blue_size bsize                                  
+      >>= fun () -> set Sdl.Gl.alpha_size asize                                 
+      >>= fun () -> set Sdl.Gl.depth_size dsize                                 
+      >>= fun () -> set Sdl.Gl.stencil_size ssize                               
+      >>= fun () -> set Sdl.Gl.context_profile_mask Sdl.Gl.context_profile_core 
+      >>= fun () -> set Sdl.Gl.context_major_version (fst c.Gl.version)
+      >>= fun () -> set Sdl.Gl.context_minor_version (snd c.Gl.version)
 end
 
 module Window = struct
@@ -727,7 +703,9 @@ module App = struct
 
   let init ?(hidpi = true) ?pos ?(size = V2.v 600. 400.) 
       ?(name = String.capitalize execname)
-      ?(surface = Surface.spec (3,2) ()) ?(mode = S.value mode_sig) () =
+      ?(surface = (`Gl Surface.Gl.default)) 
+      ?(anchor = ())
+      ?(mode = S.value mode_sig) () =
     Sdl.init Sdl.Init.(video + events) >>= fun () ->
     Window.create hidpi pos size name surface (S.value mode) >>= fun i ->
     let step = React.Step.create () in

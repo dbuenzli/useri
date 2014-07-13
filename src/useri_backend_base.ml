@@ -88,6 +88,39 @@ module Human = struct
   let average_finger_width = 11.
 end
 
+(* Surface *) 
+
+module Surface = struct
+  module Gl = struct
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    type depth = [ `D_24 | `D_16 ]
+    type stencil = [ `S_8 ]
+    type spec = 
+      { accelerated : bool option; 
+        multisample : int option; 
+        doublebuffer : bool;
+        stereo : bool; 
+        srgb : bool; 
+        colors : colors; 
+        depth : depth option; 
+        stencil : stencil option; 
+        version : int * int; } 
+
+    let default = 
+      { accelerated = None;
+        multisample = Some 8; 
+        doublebuffer = true;
+        stereo = false; 
+        srgb = true; 
+        colors = `RGBA_8888; 
+        depth = Some `D_24; 
+        stencil = None; 
+        version = (3,2); }
+  end
+
+    type kind = [ `Gl of Gl.spec | `Other ]
+end
+
 (* Application *)
 
 module App = struct

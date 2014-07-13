@@ -11,3 +11,7 @@
 * Tsdl, fix any_repeat, stops after multikey.
 * Tsdl, fix set_clipboard, doesn't seem to survive program exit.
 * Support for touch.
+* Jsoo: handle directories, see 
+  http://updates.html5rocks.com/2012/07/Drag-and-drop-a-folder-onto-Chrome-now-available
+  match Tsdl backend (to verify, generate one Drop.file event per directory
+  entry).

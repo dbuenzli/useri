@@ -310,25 +310,77 @@ end
 
 (** Rendering surface. 
 
-    An application has a single rendering surface.*)
+    An application has a single rendering surface. *)
 module Surface : sig
 
-  (** {1 Properties} *)
+  (** {1:surfaces Surface kinds and anchors} *) 
 
-  val size : size2 signal 
+  (** The type for OpenGL surface specification. *)
+  module Gl : sig
+
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    (** The type for color buffers specification. *) 
+
+    type depth = [ `D_24 | `D_16 ]
+    (** The type for depth buffer specification. *) 
+                 
+    type stencil = [ `S_8 ]
+    (** The type for stencil buffer specification. *)
+
+    type spec = 
+      { accelerated : bool option;
+        multisample : int option; 
+        doublebuffer : bool;  
+        stereo : bool; 
+        srgb : bool; 
+        colors : colors; 
+        depth : depth option; 
+        stencil : stencil option; 
+        version : int * int; } 
+    (** The type for OpenGL surface specifications. The default values 
+        mention are those of {!default}. 
+        {ul
+        {- [accelerated], use [Some false] for software renderer, [Some true]
+            to require hardware renderer, [None] to allow either. Defaults to 
+            [None]}
+        {- [multisample], use [Some count] for enabling a multisample buffer
+            with [count] samples. Defaults to [Some 8].}
+        {- [doublebuffer], use a double buffered surface. Defaults to [true].}
+        {- [stereo], use stereo buffers. Defaults to [false].}
+        {- [srgb], request an sRGB framebuffer. Defaults to [true].} 
+        {- [colors], specify the color buffers. Defaults to [`RGBA_8888].}
+        {- [depth], specify the depth buffer. Defaults to [Some `D_24].}
+        {- [stencil], specify the stencil buffer. Defaults to [None].}
+        {- [version], specify the GL version.}} *)
+
+    val default : spec 
+    (** [default] is the default OpenGL surface specification. See {!spec}. *)
+  end
+
+  type kind = [ `Gl of Gl.spec | `Other ]
+  (** The type for surface kinds. *) 
+
+  type anchor
+  (** The type for backend dependent surface anchors. *)
+
+  (** {1:surface Surface} *) 
+
+  val size : size2 signal
   (** [size] is the application's rendering surface size. 
       Differs from {!App.size} on high-dpi displays. *)
 
-  (** {1 Refreshing} 
+  val update : unit -> unit 
+  (** [update ()] updates the rendering surface. This has 
+      to be called for your drawing commends to be taken into 
+      account. *) 
+
+  (** {1 Refreshing and animating surfaces}
 
       {b TODO} Describe general idea: have the client do 
       the right thing w.r.t. to rendering/input gather and 
       on some systems drawing only refresh events is good 
       for power savings (e.g. we use request animation frame 
       in the JavaScript backend). *) 
-
-  val update : unit -> unit 
-  (** [update ()] updates the rendering surface. *) 
 
   val refresh : float event
   (** [refresh] occurs whenever the surface needs to be redrawn with
@@ -377,50 +429,7 @@ module Surface : sig
       {!animate}. The initial value is [60]. *)
 
   val set_refresh_hz : int -> unit
-  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
-
-  (** {1 Specification} *) 
-    
-  type colors = [ `RGBA_8888 | `RGB_565 ]
-  (** The type for color buffers specification. *) 
-
-  type depth = [ `D_24 | `D_16 ]
-  (** The type for depth buffer specification. *) 
-
-  type stencil = [ `S_8 ]
-  (** The teype for stencil buffer specification. *)
-
-  type spec
-  (** The type for surface specification. *)
-
-  val spec : 
-    ?share:bool -> 
-    ?accelerated:bool option ->
-    ?multisample:int option ->
-    ?doublebuffer:bool -> 
-    ?stereo:bool ->
-    ?srgb:bool ->
-    ?colors:colors ->
-    ?depth:depth option -> 
-    ?stencil:stencil option ->
-    gl:(int * int) -> unit -> spec
-  (** 
-    [spec share accelerated multisample doublebuffer
-     stereo srgb colors depth stencil gl ()] is a surface specification value 
-     such that:
-    {ul 
-    {- [share], share resources with current context. Defaults to [false].} 
-    {- [accelerated], use [Some false] for software renderer, [Some true]
-       to require hardware renderer, [None] to allow either. Defaults to 
-       [None]}
-    {- [multisample], use [Some count] for enabling a multisample buffer
-       with [count] samples. Defaults to [Some 8].}
-    {- [stereo], use stereo buffers. Defaults to [false].} 
-    {- [srgb], request an sRGB framebuffer. Defaults to [true].} 
-    {- [colors], specify the color buffers. Defaults to [`RGBA_8888].}
-    {- [depth], specify the depth buffer. Defaults to [Some `D_24].}
-    {- [sentcil], specify the stencil buffer. Defaults to [None].}
-    {- [gl], specify the GL version.}} *)
+  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)    
 end
 
 (** Application  *) 
@@ -464,7 +473,8 @@ module App : sig
     ?pos:p2 -> 
     ?size:size2 -> 
     ?name:string -> 
-    ?surface:Surface.spec ->
+    ?surface:Surface.kind ->
+    ?anchor:Surface.anchor ->
     ?mode:mode signal -> 
     unit -> [ `Ok of unit | `Error of string ]
   (** [init pos size name gl_conf ()] is an app. 

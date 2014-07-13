@@ -165,6 +165,9 @@ end
 
 module Surface = struct
 
+  module Gl = Useri_backend_base.Surface.Gl
+  type kind = Useri_backend_base.Surface.kind
+  type anchor = unit 
   let size : size2 signal = fst (S.create Size2.zero)
   let update : unit -> unit = fun () -> failwith "TODO"
   let refresh : float event = fst (E.create ())
@@ -174,25 +177,6 @@ module Surface = struct
   let animate : span:float -> float signal = fun ~span -> failwith "TODO"
   let refresh_hz : int signal = fst (S.create 60)
   let set_refresh_hz : int -> unit = fun hz -> ()
-
-  type colors = [ `RGBA_8888 | `RGB_565 ]
-  type depth = [ `D_24 | `D_16 ]
-  type stencil = [ `S_8 ]
-  type spec = unit
-
-  let spec 
-      ?share
-      ?accelerated
-      ?multisample
-      ?doublebuffer
-      ?stereo
-      ?srgb
-      ?colors
-      ?depth
-      ?stencil
-      ~gl:(min, maj) () = ()
-                    
-
 end
 
 module App = struct
@@ -230,7 +214,7 @@ module App = struct
 
   (* Init, run and release *)
 
-  let init () = 
+  let init step = 
     let send_quit _ _ = send_quit (); false in
     Ev.cb Dom_html.window Dom_html.Event.unload send_quit; 
     Drop.init ();
@@ -244,10 +228,11 @@ module App = struct
 
   let send_stop () = send_stop (); running := false
 
-  let init ?hidpi ?pos ?size ?name ?surface ?mode () = 
+  let init ?hidpi ?pos ?size ?name ?(surface = `Gl Surface.Gl.default) 
+      ?(anchor = ())
+      ?mode () =
     let step = React.Step.create () in
-    init ();
-    send_start ~step ();
+    init step;
     React.Step.execute step;
     `Ok ()
 

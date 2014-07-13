@@ -56,6 +56,28 @@ module Human : sig
   val average_finger_width : float 
 end
 
+(** Surface. *) 
+module Surface : sig
+  module Gl : sig
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    type depth = [ `D_24 | `D_16 ]
+    type stencil = [ `S_8 ]
+    type spec = 
+      { accelerated : bool option; 
+        multisample : int option; 
+        doublebuffer : bool;
+        stereo : bool; 
+        srgb : bool; 
+        colors : colors; 
+        depth : depth option; 
+        stencil : stencil option; 
+        version : int * int; } 
+    val default : spec
+  end
+
+  type kind = [ `Gl of Gl.spec | `Other ]
+end
+
 (** Application  *) 
 module App : sig
   
