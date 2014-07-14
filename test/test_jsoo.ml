@@ -20,6 +20,7 @@ let main () =
   | `Ok () ->
       Test.test_app ();
       Test.test_time ();
+      Test.test_human ();
       Test.test_drop ();
       Test.test_surface ();
       App.run (); 

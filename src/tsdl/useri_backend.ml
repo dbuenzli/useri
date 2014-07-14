@@ -414,17 +414,33 @@ module Time = struct
 end
 
 module Human = struct
+  let noticed = Useri_backend_base.Human.noticed
+  let interrupted = Useri_backend_base.Human.interrupted
+  let left = Useri_backend_base.Human.left
 
-  let noticed = 0.1 
-  let interrupted = 1. 
-  let left = 10. 
-  let feel () = failwith "TODO"
+  let rec feel_action feel set_feel ~step ~now _ = 
+    let new_feel, delay = match S.value feel with
+    | `Interacting -> `Interrupted, left -. interrupted 
+    | `Interrupted -> `Left, 0. 
+    | `Left -> assert false 
+    in
+    (set_feel ~step new_feel : unit); 
+    if delay = 0. then () else
+    let deadline = Time.tick_add now (Time.tick_of_secs delay) in
+    Time.Line.add_deadline Time.line deadline (feel_action feel set_feel)
 
-  (* Sizes in mm. *) 
-  let touch_target_size = 9. 
-  let touch_target_size_min = 7.
-  let touch_target_pad = 2. 
-  let average_finger_width = 11.
+  let feel () = 
+    let feel, set_feel = S.create `Interacting in
+    let set_feel ~step v = set_feel ~step v in
+    let now = Time.tick_now () in
+    let deadline = Time.tick_add now (Time.tick_of_secs interrupted) in
+    Time.Line.add_deadline Time.line deadline (feel_action feel set_feel);
+    feel
+    
+  let touch_target_size = Useri_backend_base.Human.touch_target_size
+  let touch_target_size_min = Useri_backend_base.Human.touch_target_size_min
+  let touch_target_pad = Useri_backend_base.Human.touch_target_pad
+  let average_finger_width = Useri_backend_base.Human.average_finger_width
 end
 
 (* Application *)

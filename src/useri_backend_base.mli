@@ -49,7 +49,6 @@ module Human : sig
   val noticed : Time.span
   val interrupted : Time.span
   val left : Time.span
-  val feel : unit -> [ `Interacting | `Interrupted | `Left ] signal
   val touch_target_size : float 
   val touch_target_size_min : float 
   val touch_target_pad : float 

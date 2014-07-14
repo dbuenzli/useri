@@ -157,10 +157,35 @@ module Time = struct
 end
 
 module Human = struct
-  include Useri_backend_base.Human
+  let noticed = Useri_backend_base.Human.noticed
+  let interrupted = Useri_backend_base.Human.interrupted
+  let left = Useri_backend_base.Human.left
 
-  let feel : unit -> [ `Interacting | `Interrupted | `Left ] signal = 
-    fun () -> failwith "TODO"
+
+  let rec feel_action feel set_feel () = 
+    let new_feel, delay = match S.value feel with
+    | `Interacting -> `Interrupted, left -. interrupted 
+    | `Interrupted -> `Left, 0. 
+    | `Left -> assert false 
+    in
+    set_feel new_feel;
+    if delay = 0. then () else
+    let action = feel_action feel set_feel in 
+    let ms = delay *. 1000. in
+    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
+    ()
+
+  let feel () = 
+    let feel, set_feel = S.create `Interacting in
+    let action = feel_action feel set_feel in 
+    let ms = interrupted *. 1000. in 
+    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
+    feel
+
+  let touch_target_size = Useri_backend_base.Human.touch_target_size
+  let touch_target_size_min = Useri_backend_base.Human.touch_target_size_min
+  let touch_target_pad = Useri_backend_base.Human.touch_target_pad
+  let average_finger_width = Useri_backend_base.Human.average_finger_width
 end
 
 module Surface = struct

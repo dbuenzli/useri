@@ -78,8 +78,7 @@ module Human = struct
 
   let noticed = 0.1 
   let interrupted = 1. 
-  let left = 10. 
-  let feel () = failwith "TODO"
+  let left = 10.
 
   (* Sizes in mm. *) 
   let touch_target_size = 9. 

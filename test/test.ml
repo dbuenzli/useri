@@ -96,12 +96,21 @@ let test_drop () =
  
 let test_time () = 
   let mname = "Time" in 
-  log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
-  let c = Time.counter () in
-  let log_tick v = 
-    log "Tick ! spanned:%a counter:%a" Time.pp_s v Time.pp_s (Time.value c)
+  let log_tick c v =
+    log "Tick ! spanned:%a counter:%a" Time.pp_s v Time.pp_s (Time.value c) 
   in
-  App.sink_event (E.map log_tick (Time.tick 1.));
+  log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
+  App.sink_event (E.map (log_tick (Time.counter ())) (Time.tick 1.)); 
+  ()
+
+let test_human () = 
+  let mname = "Human" in
+  let pp_feel c ppf = function 
+  | `Interacting -> pp ppf "Interacting" 
+  | `Interrupted -> pp ppf "Interrupted (%a)" Time.pp_s (Time.value c) 
+  | `Left -> pp ppf "Left (%a)" Time.pp_s (Time.value c) 
+  in
+  trace_s (pp_feel (Time.counter ())) mname "feel ()" (Human.feel ());
   ()
 
 let test_surface () = 
@@ -138,6 +147,7 @@ let test mods set_clipboard =
   if do_test `Text then test_text set_clipboard; 
   if do_test `Drop then test_drop (); 
   if do_test `Time then test_time ();
+  if do_test `Human then test_human ();
   if do_test `Surface then test_surface ();
   if do_test `App then test_app ();
   ()
@@ -158,7 +168,8 @@ let parse_args_and_setup () =
     "-text", add `Text, " test the Text module";
     "-drop", add `Drop, " test the Drop module";
     "-time", add `Time, " test the Time module";
-    "-surface", add `Surface,  " test the Time module";
+    "-human", add `Time, " test the Human module";
+    "-surface", add `Surface,  " test the Sufrace module";
     "-set-clipboard", Arg.String (fun s -> set_clipboard := Some s), 
     "MSG set clipboard content to MSG."; 
   ]
