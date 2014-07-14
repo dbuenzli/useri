@@ -21,6 +21,7 @@ let main () =
       Test.test_app ();
       Test.test_time ();
       Test.test_drop ();
+      Test.test_surface ();
       App.run (); 
       App.sink_event (E.map App.release App.quit)
 

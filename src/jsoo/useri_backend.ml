@@ -142,7 +142,7 @@ module Time = struct
     let ms = span *. 1000. in 
     ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms)); 
     e
-    
+
   (* Counting time *) 
     
   type counter = span 
@@ -170,13 +170,75 @@ module Surface = struct
   type anchor = unit 
   let size : size2 signal = fst (S.create Size2.zero)
   let update : unit -> unit = fun () -> failwith "TODO"
-  let refresh : float event = fst (E.create ())
-  let request_refresh : unit -> unit = fun () -> failwith "TODO"
-  let set_refresher : 'a event -> unit = fun e -> failwith "TODO"
-  let steady_refresh : until:'a event -> unit = fun ~until -> failwith "TODO"
-  let animate : span:float -> float signal = fun ~span -> failwith "TODO"
-  let refresh_hz : int signal = fst (S.create 60)
-  let set_refresh_hz : int -> unit = fun hz -> ()
+
+  (* Refresh *)
+
+  let scheduled_refresh = ref false
+  let refresh, send_raw_refresh = E.create ()
+  let send_raw_refresh = 
+    let last_refresh = ref (Time.tick_now ()) in
+    fun ?step now ->
+      send_raw_refresh ?step (now -. !last_refresh);
+      last_refresh := now
+
+  let refresh_hz, set_refresh_hz = S.create 60 
+  let set_refresh_hz hz = set_refresh_hz hz 
+  
+  let untils = ref [] 
+  let untils_empty () = !untils = [] 
+  let until_add u = untils := u :: !untils 
+  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
+
+  let anims = ref [] 
+  let anims_empty () = !anims = [] 
+  let anim_add a = anims := a :: !anims 
+  let anims_update ~step now = 
+    anims := List.find_all (fun a -> a ~step now) !anims
+
+  let rec refresh_action () =
+    let step = Step.create () in 
+    let now = Time.tick_now () in
+    anims_update ~step now;
+    send_raw_refresh ~step now;
+    Step.execute step;
+    if untils_empty () && anims_empty () 
+    then (scheduled_refresh := false)
+    else start_refreshes ()
+      
+  and start_refreshes () = 
+    let callback = Js.wrap_callback refresh_action in
+    Dom_html._requestAnimationFrame callback; 
+    scheduled_refresh := true
+
+  let generate_request _ = 
+    if !scheduled_refresh then () else 
+    start_refreshes ()
+
+  let request_refresh () = generate_request ()
+  let refresher = ref E.never
+  let set_refresher e = 
+    E.stop (!refresher); 
+    refresher := E.map generate_request e
+
+  let steady_refresh ~until = 
+    let uref = ref E.never in 
+    let u = E.map (fun _ -> until_rem !uref) until in 
+    uref := u; 
+    if not !scheduled_refresh 
+    then (until_add u; start_refreshes ())
+    else (until_add u)
+
+  let animate ~span = 
+    let s, set_s = S.create 0. in 
+    let now = Time.tick_now () in 
+    let stop = now +. span in
+    let a ~step now = 
+      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
+      (set_s ~step (1. -. ((stop -. now) /. span)); true)
+    in
+    if not !scheduled_refresh 
+    then (anim_add a; start_refreshes (); s)
+    else (anim_add a; s)
 end
 
 module App = struct

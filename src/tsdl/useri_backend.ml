@@ -467,9 +467,14 @@ module Surface = struct
 
   (* Refreshing *) 
 
-  let last_refresh = ref (Time.tick_now ())
   let scheduled_refresh = ref false
   let refresh, send_raw_refresh = E.create ()
+  let send_raw_refresh = 
+    let last_refresh = ref (Time.tick_now ()) in
+    fun ?step now ->
+      send_raw_refresh ?step (Time.tick_diff_secs now !last_refresh);
+      last_refresh := now 
+
   let refresh_hz, set_refresh_hz = S.create 60
   let set_refresh_hz hz = set_refresh_hz hz
 
@@ -481,18 +486,12 @@ module Surface = struct
   let anims = ref [] 
   let anims_empty () = !anims = []
   let anim_add a = anims := a :: !anims
-  let anims_set_rem ~step now = 
+  let anims_update ~step now = 
     anims := List.find_all (fun a -> a ~step now) !anims
 
-  let send_simple_refresh ?step () =
-    let now = Time.tick_now () in
-    send_raw_refresh ?step (Time.tick_diff_secs now !last_refresh);
-    last_refresh := now
-
   let rec refresh_action ~step ~now _ = 
-    anims_set_rem ~step now;
-    send_raw_refresh ~step (Time.tick_diff_secs now !last_refresh);
-    last_refresh := now;
+    anims_update ~step now;
+    send_raw_refresh ~step now;
     if until_empty () && anims_empty () 
     then (scheduled_refresh := false)
     else 
@@ -615,7 +614,7 @@ module Window = struct
         set_size ~step (window_size ());
         Step.execute step; 
         (* Avoid simultaneity so that the client can reshape *)
-        Surface.send_simple_refresh ()
+        Surface.send_raw_refresh (Time.tick_now ())
     | `Moved -> 
         let step = Step.create () in 
         set_pos ~step (window_pos ());
@@ -721,7 +720,7 @@ module App = struct
     Drop.sdl_init step;
     React.Step.execute step;
     let step = React.Step.create () in
-    Surface.send_simple_refresh ~step ();
+    Surface.send_raw_refresh ~step (Time.tick_now ());
     React.Step.execute step;
     (match !app with None -> () | Some (win, _) -> Sdl.show_window win);
     `Ok ()

@@ -13,6 +13,7 @@ let pp fmt = Format.fprintf fmt
 let pp_str = Format.pp_print_string
 let pp_str_esc ppf = pp ppf "%S" 
 let pp_bool = Format.pp_print_bool
+let pp_float ppf v = pp ppf "%g" v
 let pp_unit ppf () = pp ppf "()"
 let pp_opt pp_v ppf = function 
 | None -> pp ppf "None"
@@ -102,7 +103,23 @@ let test_time () =
   in
   App.sink_event (E.map log_tick (Time.tick 1.));
   ()
-  
+
+let test_surface () = 
+  let mname = "Surface" in 
+  let pp_refresh ppf v = 
+    pp ppf "%a (abs: %a)" Time.pp_s v Time.pp_s (Time.elapsed ()) 
+  in
+  trace_s V2.pp mname "size" Surface.size; 
+  trace_e pp_refresh mname "refresh" Surface.refresh;
+  let animate _ = 
+    App.sink_signal (S.trace (log "%g") (Surface.animate ~span:0.3))
+  in
+  App.sink_event (E.map animate (Time.tick 1.1));
+  let refresher = E.select [ Time.tick 1.5; Time.tick 1.6 ] in 
+  Surface.set_refresher refresher;
+  App.sink_event (E.map (fun _ -> Surface.request_refresh ()) (Time.tick 1.7));
+  ()
+    
 let test_app () = 
   let mname = "App" in 
   trace_e pp_unit mname "start" App.start;
@@ -114,15 +131,15 @@ let test_app () =
   trace_v App.pp_cpu_count mname "cpu_count" App.cpu_count;
   ()
 
-
 let test mods set_clipboard = 
   let do_test m = mods = [] || List.mem m mods in
   if do_test `Mouse then test_mouse ();
-  if do_test `Key   then test_key (); 
-  if do_test `Text  then test_text set_clipboard; 
-  if do_test `Drop  then test_drop (); 
-  if do_test `Time  then test_time ();
-  if do_test `App   then test_app ();
+  if do_test `Key then test_key (); 
+  if do_test `Text then test_text set_clipboard; 
+  if do_test `Drop then test_drop (); 
+  if do_test `Time then test_time ();
+  if do_test `Surface then test_surface ();
+  if do_test `App then test_app ();
   ()
   
 let parse_args_and_setup () =
@@ -137,10 +154,11 @@ let parse_args_and_setup () =
   let pos p = raise (Arg.Bad ("don't know what to to with " ^ p)) in
   let options = [ 
     "-mouse", add `Mouse, " test the Mouse module"; 
-    "-key",   add `Key,   " test the Key module"; 
-    "-text",  add `Text,  " test the Text module";
-    "-drop",  add `Drop,  " test the Drop module";
-    "-time",  add `Time,  " test the Time module";
+    "-key", add `Key, " test the Key module"; 
+    "-text", add `Text, " test the Text module";
+    "-drop", add `Drop, " test the Drop module";
+    "-time", add `Time, " test the Time module";
+    "-surface", add `Surface,  " test the Time module";
     "-set-clipboard", Arg.String (fun s -> set_clipboard := Some s), 
     "MSG set clipboard content to MSG."; 
   ]
