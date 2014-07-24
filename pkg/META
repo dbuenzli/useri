@@ -7,11 +7,11 @@ archive(native) = "useri.cmxa"
 archive(native, plugin) = "useri.cmxs"
 exists_if = "useri.cma"
 
-# Backends 
+# Backends
 
 # For toplevel we need to load the backend before useri since
 # the backend provides the implementation of Useri_backend that useri needs.
-# For this reason the toploop predicate is not specified in useri but in 
+# For this reason the toploop predicate is not specified in useri but in
 # in backends and the user should just #require directly the backend.
 
 package "top" (

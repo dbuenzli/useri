@@ -1,6 +1,6 @@
 #!/bin/sh
-# This script is only used for developement. It is removed by the 
-# distribution process. 
+# This script is only used for developement. It is removed by the
+# distribution process.
 
 
 set -e
@@ -9,23 +9,24 @@ OCAMLBUILD=${OCAMLBUILD:="ocamlbuild -tag debug -classic-display \
                           -use-ocamlfind \
                           -plugin-tag package(js_of_ocaml.ocamlbuild)"}
 
-action () 
+action ()
 {
     case $1 in
       default)      action backends ;;
       tests)        $OCAMLBUILD tests.otarget ;;
       doc)          shift; pkg-doc $* doc/dev-api.docdir ;;
       api-doc)      shift; pkg-doc $* doc/api.docdir ;;
-      backends)     $OCAMLBUILD useri_tsdl.cmxa useri_jsoo.cmxa ;;
+      backends)     $OCAMLBUILD useri_jsoo.cmxa useri_tsdl.cmxa
+                    ;;
       clean)        $OCAMLBUILD -clean ;;
-      jsoo)         shift; 
+      jsoo)         shift;
                     $OCAMLBUILD $1.js $1.html
                     reload-browser "http://`hostname`/useri/test/$1.html"
                     ;;
       *)            $OCAMLBUILD $* ;;
     esac
-} 
+}
 
-if [ $# -eq 0 ]; 
-then action default ; 
+if [ $# -eq 0 ];
+then action default ;
 else action $*; fi
