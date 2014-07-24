@@ -4,7 +4,10 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** Backend specific functions. *)
+(** js_of_ocaml specific functions. *)
+
+
+(** {1 Anchors} *)
 
 val anchor_of_canvas : Dom_html.canvasElement Js.t -> Useri_base.anchor
 val canvas_of_anchor : Useri_base.anchor -> Dom_html.canvasElement Js.t

@@ -17,6 +17,10 @@ let log fmt = Format.printf  (fmt ^^ "@\n%!")
 let warn fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@.")
 let warn_time () = warn "performance.now () missing, using Date.now ()"
 let warn_drag () = warn "Drag.file event not supported"
+let warn_but () = warn "unexpected e.which"
+let err_not_jsoo_anchor = "not a useri.jsoo anchor"
+let err_no_gl = "`Gl unsupported for WebGL use `Other"
+let err_init = "Useri not initialized"
 
 module Ev = struct
   let ids = ref []
@@ -29,17 +33,66 @@ module Ev = struct
 end
 
 module Mouse = struct
-  let pos : p2 signal = fst (S.create P2.o)
-  let dpos : v2 event = fst (E.create ())
-  let left : bool signal = fst (S.create false)
-  let left_down : p2 event = fst (E.create ())
-  let left_up : p2 event = fst (E.create ())
-  let middle : bool signal = fst (S.create false)
-  let middle_down : p2 event = fst (E.create ())
-  let middle_up : p2 event = fst (E.create ())
-  let right : bool signal = fst (S.create false)
-  let right_up : p2 event = fst (E.create ())
-  let right_down : p2 event = fst (E.create ())
+  let pos, set_pos = S.create P2.o
+  let dpos, send_dpos = E.create ()
+  let left, set_left = S.create false
+  let left_down, send_left_down = E.create ()
+  let left_up, send_left_up = E.create ()
+  let middle, set_middle = S.create false
+  let middle_down, send_middle_down = E.create ()
+  let middle_up, send_middle_up = E.create ()
+  let right, set_right = S.create false
+  let right_down, send_right_down = E.create ()
+  let right_up, send_right_up = E.create ()
+
+  let event_mouse_pos c e =
+    let r = (c :> Dom_html.element Js.t) ## getBoundingClientRect () in
+    let x = (float (e ## clientX)) -. r ## left in
+    let y = (float (e ## clientY)) -. r ## top in
+    let nx = x /. (r ## right -. r ## left) in
+    let ny = 1. -. (y /. (r ## bottom -. r ## top)) in
+    V2.v nx ny
+
+  let set_mouse_pos ~step c e =
+    let epos = event_mouse_pos c e in
+    send_dpos ~step V2.(epos - (S.value pos));
+    set_pos ~step epos;
+    epos
+
+  let down_cb c e =
+    Dom.preventDefault e;
+    let step = Step.create () in
+    let epos = set_mouse_pos ~step c e in
+    let set, send_down = match Js.Optdef.to_option (e ## which) with
+    | Some Dom_html.Left_button -> set_left, send_left_down
+    | Some Dom_html.Middle_button -> set_middle, send_middle_down
+    | Some Dom_html.Right_button -> set_right, send_right_down
+    | None | Some Dom_html.No_button -> warn_but (); set_left, send_left_down
+    in
+    set ~step true; send_down ~step epos;
+    React.Step.execute step;
+    false
+
+  let up_cb c e =
+    Dom.preventDefault e;
+    let step = Step.create () in
+    let epos = set_mouse_pos ~step c e in
+    let set, send_up = match Js.Optdef.to_option (e ## which) with
+    | Some Dom_html.Left_button -> set_left, send_left_up
+    | Some Dom_html.Middle_button -> set_middle, send_middle_up
+    | Some Dom_html.Right_button -> set_right, send_right_up
+    | None | Some Dom_html.No_button -> warn_but (); set_left, send_left_up
+    in
+    set ~step false; send_up ~step epos;
+    React.Step.execute step;
+    false
+
+  let move_cb c e =
+    Dom.preventDefault e;
+    let step = Step.create () in
+    let _ = set_mouse_pos ~step c e in
+    React.Step.execute step;
+    false
 end
 
 module Key = struct
@@ -196,24 +249,7 @@ module Human = struct
   let average_finger_width = Useri_backend_base.Human.average_finger_width
 end
 
-module Surface (* : sig
-  include (module type of Useri.Surface
-            with type anchor = Dom_html.canvasElement Js.t)
-
-  val init :
-    hidpi:bool ->
-    ?pos:Gg.p2 ->
-    size:Gg.size2 ->
-    surface:kind ->
-    ?anchor:anchor ->
-    mode:Useri_backend_base.App.mode React.signal ->
-    unit ->
-    Dom_html.canvasElement Js.t
-
-  val anchor_of_canvas : Dom_html.canvasElement Js.t -> anchor
-  val canvas_of_anchor : anchor -> Dom_html.canvasElement Js.t
-
-end *) = struct
+module Surface = struct
 
   module Gl = Useri_backend_base.Surface.Gl
   type kind = Useri_backend_base.Surface.kind
@@ -221,14 +257,17 @@ end *) = struct
   let inj, proj = Useri_base.Anchor.create ()
   let anchor_of_canvas = inj
   let canvas_of_anchor a = match proj a with
-  | None -> assert false (* there should be some kind of link time failure *)
+  | None -> invalid_arg err_not_jsoo_anchor
   | Some c -> c
 
   let size : size2 signal = fst (S.create Size2.zero)
-  let update : unit -> unit = fun () -> failwith "TODO"
+  let update : unit -> unit = fun () -> ()
 
-  let canvas : [ `None | `Some of Dom_html.canvasElement Js.t ] ref =
-    ref `None
+  let canvas : Dom_html.canvasElement Js.t option ref = ref None
+
+  let anchor () = match !canvas with
+  | None -> invalid_arg err_init
+  | Some c -> anchor_of_canvas c
 
   let init ~hidpi ?pos ~size ~surface ?anchor ~mode () =
     let c = match anchor with
@@ -240,7 +279,6 @@ end *) = struct
     in
     match surface with
     | `Other ->
-(*        let ctx = c ## getContext (Dom_html._2d_) in *)
         let topx = str "%dpx" in
         let w = Float.int_of_round (Size2.w size) in
         let h = Float.int_of_round (Size2.h size) in
@@ -248,10 +286,11 @@ end *) = struct
         c ## style ## height <- Js.string (topx h);
         c ## width <- w;
         c ## height <- h;
-        canvas := `Some c;
-        c
-    | `Gl spec ->
-        failwith "TODO"
+        Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
+        Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
+        Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
+        canvas := Some c
+    | `Gl _ -> invalid_arg err_no_gl
 
   (* Refresh *)
 
@@ -375,7 +414,7 @@ module App = struct
     let send_quit _ _ = send_quit (); false in
     Ev.cb Dom_html.window Dom_html.Event.unload send_quit;
     let step = React.Step.create () in
-    let _ = Surface.init ~hidpi ?pos ~size ~surface ?anchor ~mode () in
+    Surface.init ~hidpi ?pos ~size ~surface ?anchor ~mode ();
     Drop.init ();
     React.Step.execute step;
     `Ok ()

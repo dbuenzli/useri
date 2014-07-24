@@ -207,7 +207,7 @@ module Drop : sig
       {ul
       {- [`Ok n] if a previous or simultaneous {!file} event occured
          with name [n] and the file is now available for reading.}
-      {- [`Error (n, e)] if a previous or simultanous {!file} event occured
+      {- [`Error (n, e)] if a previous or simultaneous {!file} event occured
          with name [n] and the file is not available because of [e]}} *)
 end
 
@@ -367,6 +367,10 @@ module Surface : sig
   type kind = [ `Gl of Gl.spec | `Other ]
   (** The type for surface kinds. *)
 
+  val anchor : unit -> Useri_base.anchor
+  (** [anchor ()] is the application's surface anchor. This
+      can be used for example with {!Useri_jsoo.canvas_of_anchor}. *)
+
   (** {1:surface Surface} *)
 
   val size : size2 signal
@@ -407,7 +411,7 @@ module Surface : sig
   val request_refresh : unit -> unit
   (** [request_refresh ()] has the effect of making {!refresh}
       occur some time later after it was called. This function call
-      can be abused.
+      is cheap and can be abused.
 
       {b Warning.} This function may be removed from the API in
       the future. *)
@@ -639,7 +643,8 @@ end
      In this case rendering is simply performed in a
      {{!React.steps}React update step}
      simultanous with the {!Surface.refresh} event, in this step you can
-     sample signals needed for rendering.}
+     sample signals needed for rendering (as long as they {e do not}
+     depend on {!Surface.refresh}).}
   {- Rendering as a task, in more complex rendering scenarios and especially
      with {{!cooperate}cooperative concurency} this is likely to be more
      convenient. In this case {!Surface.refresh} occurences simply generate

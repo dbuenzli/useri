@@ -8,14 +8,14 @@ open Gg
 open React
 open Useri
 
-let main () = 
-  let hidpi = true (* App.env "HIDPI" ~default:true bool_of_string *) in 
-  let mode = 
+let main () =
+  let hidpi = true (* App.env "HIDPI" ~default:true bool_of_string *) in
+  let mode =
     S.const `Windowed
-    (* App.mode_aswitch ~init:`Windowed (Key.up `Space) *) 
+    (* App.mode_aswitch ~init:`Windowed (Key.up `Space) *)
   in
-  let size = Size2.v 600. 400. in 
-  match App.init ~hidpi ~size ~mode ~surface:`Other () with 
+  let size = Size2.v 600. 400. in
+  match App.init ~hidpi ~size ~mode ~surface:`Other () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
       Test.test_app ();
@@ -23,10 +23,11 @@ let main () =
       Test.test_human ();
       Test.test_drop ();
       Test.test_surface ();
-      App.run (); 
+      Test.test_mouse ();
+      App.run ();
       App.sink_event (E.map App.release App.quit)
 
-let () = main ()  
+let () = main ()
 
 
 (*---------------------------------------------------------------------------
@@ -36,7 +37,7 @@ let () = main ()
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
    are met:
-     
+
    1. Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
 
