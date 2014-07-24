@@ -4,7 +4,16 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-include Useri_backend_jsoo
+type anchor
+(** The type for surface anchors. *)
+
+(**/**)
+module Anchor : sig
+  type t = anchor
+  val create : unit -> ('a -> t) * (t -> 'a option)
+  val none : t
+end
+(**/**)
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

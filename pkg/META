@@ -25,10 +25,20 @@ package "top" (
  exists_if = "useri_top.cma"
 )
 
+package "base" (
+  description = "Useri's backend base"
+  version = "%%VERSION%%"
+  archive(byte) = "useri_base.cma"
+  archive(byte, plugin) = "useri_base.cma"
+  archive(native) = "useri_base.cmxa"
+  archive(native, plugin) = "useri_base.cmxs"
+  exists_if = "useri_base.cma"
+)
+
 package "tsdl" (
   description = "Useri's tsdl backend"
   version = "%%VERSION%%"
-  requires = "gg react tsdl"
+  requires = "gg react tsdl useri.base"
   archive(byte) = "useri_tsdl.cma"
   archive(byte, plugin) = "useri_tsdl.cma"
   archive(byte, toploop) += "useri.cma useri_top.cma"
@@ -41,7 +51,7 @@ package "tsdl" (
 package "jsoo" (
   description = "Useri's js_of_ocaml backend"
   version = "%%VERSION%%"
-  requires = "gg react js_of_ocaml js_of_ocaml.syntax"
+  requires = "gg react js_of_ocaml js_of_ocaml.syntax useri.base"
   archive(byte) = "useri_jsoo.cma"
   archive(byte, plugin) = "useri_jsoo.cma"
   archive(byte, toploop) += "useri_top.cma"

@@ -4,7 +4,18 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-include Useri_backend_jsoo
+module Anchor = struct
+  type t = exn   (* universal type, see http://mlton.org/UniversalType *)
+  let create (type s) () =
+    let module M = struct exception E of s option end in
+    (fun x -> M.E (Some x)), (function M.E x -> x | _ -> None)
+
+  let none = fst (create ()) None
+end
+
+type anchor = Anchor.t
+
+
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

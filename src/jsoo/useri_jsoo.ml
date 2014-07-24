@@ -4,7 +4,8 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-include Useri_backend_jsoo
+let anchor_of_canvas = Useri_backend_jsoo.Surface.anchor_of_canvas
+let canvas_of_anchor = Useri_backend_jsoo.Surface.canvas_of_anchor
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

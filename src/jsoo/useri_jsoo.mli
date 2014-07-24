@@ -4,7 +4,10 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-include Useri_backend_jsoo
+(** Backend specific functions. *)
+
+val anchor_of_canvas : Dom_html.canvasElement Js.t -> Useri_base.anchor
+val canvas_of_anchor : Useri_base.anchor -> Dom_html.canvasElement Js.t
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

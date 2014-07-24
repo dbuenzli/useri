@@ -15,7 +15,7 @@ let main () =
     (* App.mode_aswitch ~init:`Windowed (Key.up `Space) *) 
   in
   let size = Size2.v 600. 400. in 
-  match App.init ~hidpi ~size ~mode () with 
+  match App.init ~hidpi ~size ~mode ~surface:`Other () with 
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
       Test.test_app ();
