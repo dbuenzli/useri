@@ -9,7 +9,7 @@ open React
 open Useri
 
 let main () =
-  let hidpi = true (* App.env "HIDPI" ~default:true bool_of_string *) in
+  let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode =
     S.const `Windowed
     (* App.mode_aswitch ~init:`Windowed (Key.up `Space) *)
@@ -18,12 +18,7 @@ let main () =
   match App.init ~hidpi ~size ~mode ~surface:`Other () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
-      Test.test_app ();
-      Test.test_time ();
-      Test.test_human ();
-      Test.test_drop ();
-      Test.test_surface ();
-      Test.test_mouse ();
+      Test.env_setup ();
       App.run ();
       App.sink_event (E.map App.release App.quit)
 

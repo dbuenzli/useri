@@ -367,7 +367,14 @@ module App = struct
   let prefs_path ~org ~app = failwith "TODO"
   let size : size2 signal = fst (S.create Size2.zero)
   let pos : p2 signal = fst (S.create P2.o)
-  let env key ~default parse = failwith "TODO"
+  let env key ~default parse =
+    let args = match Url.Current.get () with
+    | None -> []
+    | Some (Url.Http u | Url.Https u) -> u.Url.hu_arguments
+    | Some (Url.File u) -> u.Url.fu_arguments
+    in
+    try parse (List.assoc key args) with
+    | _ -> default
 
   type mode = Useri_backend_base.App.mode
   let mode_switch ?(init = `Windowed) e =

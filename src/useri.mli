@@ -4,9 +4,10 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** Declarative user interaction with {!React}.
+(** Simple declarative user interaction with {!React}.
 
-    [Useri] gathers user input as {!React} signals and events.
+    [Useri] gathers user input as {!React} signals and events from
+    a single rendering surface.
 
     Open the module to use it, this defines only modules in your scope.
 
@@ -14,10 +15,10 @@
 
     {b Caveat.} Do not expect to be able to fully exploit the
     possibilities and flexibility of the platforms underlying the
-    backends. This library is an abstraction library and thus remains
-    limited. Depending on your needs it may fit quite well the platform
-    and should for the other remain a hopfully good and well-principled
-    prototyping abtraction.
+    backends. This library is a {e simple} abstraction library and
+    thus remains limited. Depending on your needs it may fit quite
+    well otherwise it will hopfully provide you with a good and
+    well-principled prototyping abtraction.
 
     {e Release %%VERSION%% — %%MAINTAINER%% } *)
 
@@ -462,7 +463,13 @@ module App : sig
   val env : string -> default:'a -> (string -> 'a) -> 'a
   (** [env var ~default parse] lookups [var] in the environment, parses
       it with [parse] and returns the result. If [parse] raises or
-      if [var] is not in the environment [default] is returned. *)
+      if [var] is not in the environment [default] is returned.
+
+      Data lookup depends on the {{!backend}backend}:
+      {ul
+      {- [`Tsdl] uses {!Sys.getenv}.}
+      {- [`Jsoo] lookups the query string of [window.location]
+         for the first matching [var=value] pair.}} *)
 
   (** {1 Mode} *)
 
