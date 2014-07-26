@@ -10,30 +10,30 @@ open Useri
 
 let ( >>= ) = Lwt.( >>= )
 
-let run ~until = 
+let run ~until =
   let det = until >>= fun x -> Lwt.return (`Det x) in
   let timeout t = Lwt_unix.sleep t >>= fun () -> Lwt.return `Undet in
   let rec loop () =
     let t = App.run_step () in
-    match Lwt_main.run (Lwt.choose [timeout t; det]) with 
-    | `Undet -> loop () 
-    | `Det _ -> () 
+    match Lwt_main.run (Lwt.choose [timeout t; det]) with
+    | `Undet -> loop ()
+    | `Det _ -> ()
   in
   loop ()
 
-let main () = 
+let main () =
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
-  let size = Size2.v 600. 400. in 
-  match App.init ~hidpi ~size ~mode () with 
+  let size = Size2.v 600. 400. in
+  match App.init ~hidpi ~size ~mode () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
-      Test.parse_args_and_setup ();
+      Test.cmdline_setup ();
       run ~until:(Lwt_react.E.next App.quit);
       App.release ();
       exit 0
 
-let () = main ()  
+let () = main ()
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.
@@ -42,7 +42,7 @@ let () = main ()
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
    are met:
-     
+
    1. Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
 

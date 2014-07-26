@@ -8,24 +8,24 @@ open Gg
 open React
 open Useri
 
-let rec run ~until = 
-  let timeout = App.run_step () in 
+let rec run ~until =
+  let timeout = App.run_step () in
   match Fut.await ~timeout until with
   | `Undet -> run ~until
   | `Det _ | `Never -> ()
-      
-let main () = 
+
+let main () =
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
-  let size = Size2.v 600. 400. in 
-  match App.init ~hidpi ~size ~mode () with 
+  let size = Size2.v 600. 400. in
+  match App.init ~hidpi ~size ~mode () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
-      Test.parse_args_and_setup ();
-      run ~until:(Futr.of_event App.quit); 
+      Test.cmdline_setup ();
+      run ~until:(Futr.of_event App.quit);
       exit 0
 
-let () = main ()  
+let () = main ()
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.
@@ -34,7 +34,7 @@ let () = main ()
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
    are met:
-     
+
    1. Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
 
