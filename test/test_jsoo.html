@@ -13,25 +13,37 @@
   <script type="text/javascript" defer="defer" src="test_jsoo.js"></script>
   <style type="text/css">
     @import url(http://fonts.googleapis.com/css?family=Lato:300);
+    @import url(http://fonts.googleapis.com/css?family=Inconsolata);
 
+    *, *:before, *:after { -moz-box-sizing: border-box;
+                           -webkit-box-sizing: border-box;
+                           box-sizing: border-box; }
+
+    html { font-size: 1em; height:100%; }
     body { background-color: black;
            color: #A0A0A0;
-           font-size: 1em;
-           line-height: 1.3125em;
+           font-size: 1rem;
+           line-height: 1.3125rem;
            font-family: 'Lato', sans-serif;
            font-weight: 300;
-           margin: 3em; }
+           margin: 2.6rem; }
 
-    h1 { font-weight: 300; text-transform: uppercase; font-size: 2em; }
-    canvas { border: thin solid #A0A0A0; }
+    h1 { font-weight: 300; font-size: 2rem; line-height:2.2rem;
+         text-transform: uppercase;
+         margin:0rem; padding:0rem; }
 
+    canvas { margin-top:1.3125rem; border: thin solid #505050; }
+    div { font-family: 'Inconsolata', monospace;
+          font-size: 0.8rem;
+          margin-top:1.3125rem;
+          width: 480px; height: 300px; overflow:scroll; }
+    p { margin:0rem; padding:0rem; }
   </style>
   <title>Useri Test</title>
 </head>
 <body>
   <noscript>Sorry, you need to enable JavaScript to see this page.</noscript>
   <h1>Useri Testing</h1>
-  <p>See the browser console for more information.</p>
 </body>
 </html>
 

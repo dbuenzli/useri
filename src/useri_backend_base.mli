@@ -12,7 +12,9 @@ open React
 (** User keyboard. *)
 module Key : sig
 
-  type sym =
+  (** {1 Key identifiers} *)
+
+  type id =
     [ `Alt of [ `Left | `Right ]
     | `Arrow of [ `Up | `Down | `Left | `Right ]
     | `Backspace
@@ -33,7 +35,28 @@ module Key : sig
     | `Unknown of int ]
 
   val uchar : char -> [> `Uchar of int ]
-  val pp_sym : ?uchar:bool -> Format.formatter -> sym -> unit
+  val pp_id : Format.formatter -> id -> unit
+
+  (** {1 Key events and signals} *)
+
+  val any_down : id event
+  val any_repeat : id event
+  val any_up : id event
+  val any_holds : bool signal
+  val down : ?repeat:bool -> id -> unit event
+  val up : id -> unit event
+  val holds : id -> bool signal
+  val alt : bool signal
+  val ctrl : bool signal
+  val meta : bool signal
+  val shift : bool signal
+
+  (** {1 Backend driving function} *)
+
+  val init : step:Step.t -> unit
+  val release : step:Step.t -> unit
+  val handle_down : step:Step.t -> id -> repeat:bool -> unit
+  val handle_up : step:Step.t -> id -> unit
 end
 
 (** Time. *)

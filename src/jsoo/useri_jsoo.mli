@@ -4,8 +4,12 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** js_of_ocaml specific functions. *)
+(** js_of_ocaml specifics
 
+    Key: cannot distinguish between enter and return.
+         cannot distinguish between
+         (`Shift | `Meta | `Ctrl | `Alt left and right.
+*)
 
 (** {1 Anchors} *)
 

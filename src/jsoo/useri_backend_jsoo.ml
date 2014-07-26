@@ -60,7 +60,7 @@ module Mouse = struct
     epos
 
   let down_cb c e =
-    Dom.preventDefault e;
+(*    Dom.preventDefault e; *)
     let step = Step.create () in
     let epos = set_mouse_pos ~step c e in
     let set, send_down = match Js.Optdef.to_option (e ## which) with
@@ -71,10 +71,10 @@ module Mouse = struct
     in
     set ~step true; send_down ~step epos;
     React.Step.execute step;
-    false
+    true
 
   let up_cb c e =
-    Dom.preventDefault e;
+(*    Dom.preventDefault e; *)
     let step = Step.create () in
     let epos = set_mouse_pos ~step c e in
     let set, send_up = match Js.Optdef.to_option (e ## which) with
@@ -85,7 +85,7 @@ module Mouse = struct
     in
     set ~step false; send_up ~step epos;
     React.Step.execute step;
-    false
+    true
 
   let move_cb c e =
     Dom.preventDefault e;
@@ -96,20 +96,72 @@ module Mouse = struct
 end
 
 module Key = struct
-  include Useri_backend_base.Key
+  type id = Useri_backend_base.Key.id
+  let uchar = Useri_backend_base.Key.uchar
+  let pp_id = Useri_backend_base.Key.pp_id
 
-  let any_down : sym event = fst (E.create ())
-  let any_repeat : sym event = fst (E.create ())
-  let any_up : sym event = fst (E.create ())
-  let any_holds : bool signal = fst (S.create false)
-  let down : ?repeat:bool -> sym -> unit event =
-    fun ?(repeat = false) sym -> failwith "TODO"
+  let any_down = Useri_backend_base.Key.any_down
+  let any_repeat = Useri_backend_base.Key.any_repeat
+  let any_up = Useri_backend_base.Key.any_up
+  let any_holds = Useri_backend_base.Key.any_holds
+  let down = Useri_backend_base.Key.down
+  let up = Useri_backend_base.Key.up
+  let holds = Useri_backend_base.Key.holds
 
-  let up : sym -> unit event = fun sym -> failwith "TODO"
-  let holds : sym -> bool signal = fun sym -> failwith "TODO"
-  let meta : bool signal = fst (S.create false)
-  let ctrl : bool signal = fst (S.create false)
-  let alt : bool signal = fst (S.create false)
+  let alt = Useri_backend_base.Key.alt
+  let ctrl = Useri_backend_base.Key.ctrl
+  let meta = Useri_backend_base.Key.meta
+  let shift = Useri_backend_base.Key.shift
+
+  (* For browser keyboard handling see http://unixpapa.com/js/key.html *)
+
+  let id_of_event e = match e ## keyCode with
+  | n when 48 <= n && n <= 57 -> `Digit (n - 48)
+  | n when 65 <= n && n <= 90 -> `Uchar n
+  | n when 96 <= n && n <= 105 -> `Digit (n - 96)
+  | n when 112 <= n && n <= 135 -> `Function (n - 111)
+  | 8 -> `Backspace
+  | 9 -> `Tab
+  | 13 -> `Return
+  | 16 -> `Shift `Left
+  | 17 -> `Ctrl `Left
+  | 18 -> `Alt `Left
+  | 27 -> `Escape
+  | 32 -> `Space
+  | 33 -> `Page `Up
+  | 34 -> `Page `Down
+  | 35 -> `End
+  | 36 -> `Home
+  | 37 -> `Arrow `Left
+  | 38 -> `Arrow `Up
+  | 39 -> `Arrow `Right
+  | 40 -> `Arrow `Down
+  | 45 -> `Enter
+  | 91 | 224 -> `Meta `Left
+  | 93 -> `Meta `Right
+  | n -> `Unknown n
+
+  let repeat_of_event e = false
+
+  let down_cb _ e =
+    Dom.preventDefault e;
+    let id = id_of_event e in
+    let repeat = repeat_of_event e in
+    let step = Step.create () in
+    Useri_backend_base.Key.handle_down ~step id ~repeat;
+    Step.execute step;
+    false
+
+  let up_cb _ e =
+    Dom.preventDefault e;
+    let id = id_of_event e in
+    let step = Step.create () in
+    Useri_backend_base.Key.handle_up ~step id;
+    Step.execute step;
+    false
+
+  let init = Useri_backend_base.Key.init
+  let release = Useri_backend_base.Key.release
 end
 
 module Text = struct
@@ -289,6 +341,10 @@ module Surface = struct
         Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
         Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
         Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
+        Ev.cb c Dom_html.Event.keydown Key.down_cb;
+        Ev.cb c Dom_html.Event.keyup Key.up_cb;
+        c ## setAttribute ("tabindex", "0");
+        (Js.Unsafe.coerce c) ## focus ();
         canvas := Some c
     | `Gl _ -> invalid_arg err_no_gl
 
@@ -410,7 +466,7 @@ module App = struct
   let send_start ?step () =
     if not !running then (running := true; send_start ?step ())
 
-  let send_stop () = send_stop (); running := false
+  let send_stop ~step () = send_stop ~step (); running := false
 
   let init ?(hidpi = true) ?pos ?(size = V2.v 600. 400.)
       ?(name = String.capitalize execname)
@@ -421,6 +477,7 @@ module App = struct
     let send_quit _ _ = send_quit (); false in
     Ev.cb Dom_html.window Dom_html.Event.unload send_quit;
     let step = React.Step.create () in
+    Key.init step;
     Surface.init ~hidpi ?pos ~size ~surface ?anchor ~mode ();
     Drop.init ();
     React.Step.execute step;
@@ -429,7 +486,10 @@ module App = struct
   let run_step () = send_start (); max_float
   let run ?(until = E.never) () = send_start ()
   let release ?(sinks = true) () =
-    send_stop ();
+    let step = Step.create () in
+    send_stop ~step ();
+    Key.release ~step;
+    Step.execute step;
     if sinks then release_sinks ();
     Ev.release ();
     ()

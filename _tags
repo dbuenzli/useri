@@ -20,8 +20,11 @@
                   use_useri_base, use_useri_tsdl, use_useri
 <test/*tsdl*> : package(tsdl), basefirst, \
                 use_useri_base, use_useri_tsdl, use_useri
-<test/*jsoo*> : package(js_of_ocaml), basefirst, \
+<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml.syntax), \
+                syntax(camlp4o), basefirst, \
                 use_useri_base, use_useri_jsoo, \
                 use_useri, weak_js
 <test/*tsdl*fut*> : thread, package(fut.select), package(fut.r), package(fut)
 <test/*tsdl*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
+<test/*life*> : package(js_of_ocaml), package(vg), package(vg.jsoo), \
+                basefirst, use_useri_base, use_useri_jsoo, use_useri,weak_js

@@ -84,15 +84,29 @@ end
 (* Keyboard *)
 
 module Key = struct
+  type id = Useri_backend_base.Key.id
+  let uchar = Useri_backend_base.Key.uchar
+  let pp_id = Useri_backend_base.Key.pp_id
 
-  include Useri_backend_base.Key
+  let any_down = Useri_backend_base.Key.any_down
+  let any_repeat = Useri_backend_base.Key.any_repeat
+  let any_up = Useri_backend_base.Key.any_up
+  let any_holds = Useri_backend_base.Key.any_holds
+  let down = Useri_backend_base.Key.down
+  let up = Useri_backend_base.Key.up
+  let holds = Useri_backend_base.Key.holds
+
+  let alt = Useri_backend_base.Key.alt
+  let ctrl = Useri_backend_base.Key.ctrl
+  let meta = Useri_backend_base.Key.meta
+  let shift = Useri_backend_base.Key.shift
 
   module Int = struct
     type t = int
     let compare : int -> int -> int = Pervasives.compare
   end
 
-  let sym_of_keycode =
+  let id_of_keycode =
     let module Imap = Map.Make (Int) in
     let map = [
       Sdl.K.lalt, `Alt `Left; Sdl.K.ralt, `Alt `Right;
@@ -137,90 +151,23 @@ module Key = struct
     | Not_found ->
         if kc land Sdl.K.scancode_mask > 0 then `Unknown kc else `Uchar kc
 
-  let (any_down : sym event), send_any_down = E.create ()
-  let (any_repeat : sym event), send_any_repeat = E.create ()
-  let (any_up : sym event), send_any_up = E.create ()
-  let down_count = ref 0
-  let any_holds, set_any_holds = S.create false
-
-  let down_event = Hashtbl.create 47
-  let repeat_event = Hashtbl.create 47
-  let up_event = Hashtbl.create 47
-
-  let def_event event sym = try fst (Hashtbl.find event sym) with
-  | Not_found ->
-      let def = E.create () in
-      Hashtbl.add event sym def;
-      fst def
-
-  let send_event ?step event sym =
-    try snd (Hashtbl.find event sym) ?step ()
-    with Not_found -> ()
-
-  let state_signal = Hashtbl.create 47
-  let set_signal ?step (sym : sym) v =
-    try snd (Hashtbl.find state_signal sym) ?step v
-    with Not_found -> ()
-
-  let down ?(repeat = false) (sym : sym) =
-    if repeat then def_event repeat_event sym else
-    def_event down_event sym
-
-  let up (sym : sym) = def_event up_event sym
-  let holds sym = try fst (Hashtbl.find state_signal sym) with
-  | Not_found ->
-      let def = S.create false in (* TODO get state from sdl *)
-      Hashtbl.add state_signal sym def;
-      fst def
-
-  let meta =
-    let def = S.create false in
-    Hashtbl.add state_signal (`Meta `Left) def;
-    Hashtbl.add state_signal (`Meta `Right) def;
-    fst def
-
-  let ctrl =
-    let def = S.create false in
-    Hashtbl.add state_signal (`Ctrl `Left) def;
-    Hashtbl.add state_signal (`Ctrl `Right) def;
-    fst def
-
-  let alt =
-    let def = S.create false in
-    Hashtbl.add state_signal (`Alt `Left) def;
-    Hashtbl.add state_signal (`Alt `Right) def;
-    fst def
-
-  let sdl_down e = (* TODO correct semantics *)
-    let sym = sym_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
+  let sdl_down e =
+    let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
     let repeat = Sdl.Event.(get e keyboard_repeat) <> 0 in
-    if repeat then begin
-      let step = Step.create () in
-      send_any_repeat ~step sym;
-      send_event ~step repeat_event sym;
-      Step.execute step
-    end else begin
-      let step = Step.create () in
-      send_any_down ~step sym;
-      send_any_repeat ~step sym;
-      incr down_count; set_any_holds true;
-      send_event ~step down_event sym;
-      send_event ~step repeat_event sym;
-      set_signal ~step sym true;
-      Step.execute step
-    end
-
-  let sdl_up e = (* TODO correct semantics *)
-    let sym = sym_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
     let step = Step.create () in
-    send_any_up ~step sym;
-    decr down_count;
-    if !down_count <= 0 then (down_count := 0; set_any_holds false);
-    send_event ~step up_event sym;
-    set_signal ~step sym false;
-    Step.execute step
+    Useri_backend_base.Key.handle_down ~step id ~repeat;
+    Step.execute step;
+    ()
 
-  let sdl_init step = ()
+  let sdl_up e =
+    let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
+    let step = Step.create () in
+    Useri_backend_base.Key.handle_up ~step id;
+    Step.execute step;
+    ()
+
+  let init = Useri_backend_base.Key.init
+  let release = Useri_backend_base.Key.release
 end
 
 (* Text input *)
@@ -471,7 +418,8 @@ module Surface = struct
   module Gl = Useri_backend_base.Surface.Gl
 
   type kind = Useri_backend_base.Surface.kind
-  type anchor = unit
+
+  let anchor () = failwith "TODO"
 
   (* Properties *)
 
@@ -703,7 +651,10 @@ module App = struct
   let send_stop ?step () = send_stop ?step (); running := false
 
   let release ?(sinks = true) () =
-    send_stop ();
+    let step = Step.create () in
+    send_stop ~step ();
+    Key.release step;
+    Step.execute step;
     if sinks then release_sinks ();
     match !app with
     | None -> ()
@@ -729,7 +680,7 @@ module App = struct
     set_size ~step (window_size ());
     Surface.set_size ~step (drawable_size ());
     Mouse.sdl_init step;
-    Key.sdl_init step;
+    Key.init step;
     Text.sdl_init step;
     Drop.sdl_init step;
     React.Step.execute step;

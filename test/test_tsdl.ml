@@ -15,7 +15,7 @@ let main () =
   match App.init ~hidpi ~size ~mode () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
-      Test.parse_args_and_setup ();
+      Test.cmdline_setup ();
       App.run ~until:App.quit ();
       App.release ();
       exit 0

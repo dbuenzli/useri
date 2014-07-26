@@ -78,9 +78,9 @@ end
 (** User keyboard. *)
 module Key : sig
 
-  (** {1 Key symbols} *)
+  (** {1 Key identifiers} *)
 
-  type sym =
+  type id =
     [ `Alt of [ `Left | `Right ]
     | `Arrow of [ `Up | `Down | `Left | `Right ]
     | `Backspace
@@ -99,55 +99,87 @@ module Key : sig
     | `Tab
     | `Uchar of int
     | `Unknown of int ]
+  (** The type for key identifiers.
+
+      A key identifier corresponds to a physical key on a given
+      keyboard. It is {b not related} to the textual character that will
+      be inserted by depressing that key. Use {!Text} events for getting
+      textual data inserted by a user. *)
 
   val uchar : char -> [> `Uchar of int ]
+  (** [uchar c] is a key identifier from [c]. *)
 
-  val pp_sym : ?uchar:bool -> Format.formatter -> sym -> unit
-  (** [pp_sym ppf sym] prints an unspecified representation of [sym] on
-      [ppf]. If [char] is [true] prints character as UTF-8 sequences
-      rather than using the U+XXXX notation. *)
+  val pp_id : Format.formatter -> id -> unit
+  (** [pp_id ppf id] prints an unspecified representation of [id] on
+      [ppf]. *)
 
-  (** {1 Key events and signals}
+  (** {1 Key events and signals} *)
 
-      {b TODO.} Clarify what happens if created during update step. *)
+  val any_down : id event
+  (** [any_down] occurs whenever a key goes down. *)
 
-  val any_down : sym event
-  (** [any_down] occurs whenever a key is down. *)
+  val any_repeat : id event
+  (** [any_repeat] occurs whenever a key goes down and continues to
+      occur at an unspecified frequency until all the keys go up. *)
 
-  val any_repeat : sym event
-  (** [sym_repeat] occurs whenever a key is down and continues to
-      occur periodically while a key is down. *)
-
-  val any_up : sym event
-  (** [sym_up] occurs whenever a key is up. *)
+  val any_up : id event
+  (** [any_up] occurs whenever a key goes up. *)
 
   val any_holds : bool signal
-  (** [any_holds] is [true] whenever any key down. *)
+  (** [any_holds] is [true] whenever any key is down.
 
-  val down : ?repeat:bool -> sym -> unit event
-  (** [down repeat sym] occurs whenever key [sym] is down.  If
+      {b Warning.} See note on {{!semantics}semantics}. *)
+
+  val down : ?repeat:bool -> id -> unit event
+  (** [down repeat id] occurs whenever the key [id] goes down.  If
       [repeat] is [true] (defaults to [false]) the event continues to
-      occur periodically while the key is down. *)
+      occur at an unspecified frequency until the key goes up.
 
-  val up : sym -> unit event
-  (** [up sym] occurs whenever key [sym] is up. *)
+      {b Warning.} See note on {{!semantics}semantics}. *)
 
-  val holds : sym -> bool signal
-  (** [holds sym] is [true] whenever [sym] is down. *)
+  val up : id -> unit event
+  (** [up id] occurs whenever the key [id] goes up.
+
+      {b Warning.} See note on {{!semantics}semantics}. *)
+
+  val holds : id -> bool signal
+  (** [holds id] is [true] whenever the key [id] is down.
+
+      {b Warning.} See note on {{!semantics}semantics}. *)
 
   (** {1 Key modifiers signals} *)
 
-  val meta : bool signal
-  (** [meta] is [true] whenever a meta key is down. Equivalent to:
-      {[S.l2 ( || ) (holds (`Meta `Left)) (holds (`Meta `Right)]} *)
+  val alt : bool signal
+  (** [alt] is [true] whenever an alt key is down. Equivalent to:
+      {[S.Bool.(holds (`Alt `Left) || holds (`Right `Right))]} *)
 
   val ctrl : bool signal
   (** [ctrl] is [true] whenever a ctrl key is down. Equivalent to:
-      {[S.l2 ( || ) (holds (`Ctrl `Left)) (holds (`Ctrl `Right)]} *)
+      {[S.Bool.(holds (`Ctrl `Left) || holds (`Ctrl `Right))]} *)
 
-  val alt : bool signal
-  (** [alt] is [true] whenever an alt key is down. Equivalent to:
-      {[S.l2 ( || ) (holds (`Alt `Left)) (holds (`Alt `Right)]} *)
+  val meta : bool signal
+  (** [meta] is [true] whenever a meta key is down. Equivalent to:
+      {[S.Bool.(holds (`Meta `Left) || holds (`Meta `Right))]} *)
+
+  val shift : bool signal
+  (** [shift] is [true] whenever a shift key is down. Equivalent to:
+      {[S.Bool.(holds (`Shift `Left) || holds (`Shift `Right))]} *)
+
+  (** {1:semantics Semantic subtleties}
+
+      {!down}, {!up} and {!holds} may not be accurate the first time
+      they are created inside a {!React} update cycle in which they
+      should occur or update themselves. Note that this is quite
+      unlikely, the only case where this can occur is if these
+      functions are called as a dependency of the [Useri.Key.any_*]
+      events or signals.
+
+      If keys are hold by the user during initialisation of [Useri],
+      {!any_holds} and {!holds} may initially wrongly be [false]
+      until corresponding keys are released.
+
+      In the [`Tsdl] backend multiple {!repeat} events don't work.
+      TODO. y*)
 end
 
 (** User text keyboard input and clipboard. *)

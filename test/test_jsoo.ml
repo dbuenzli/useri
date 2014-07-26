@@ -8,16 +8,29 @@ open Gg
 open React
 open Useri
 
+let setup_log () =
+  let log = Dom_html.(createDiv document) in
+  let add_entry s =
+    let e = Dom_html.(createP document) in
+    e ## innerHTML <- Js.string s;
+    Dom.insertBefore log e (log ## firstChild)
+  in
+  Dom.appendChild (Dom_html.document ## body) log;
+  Sys_js.set_channel_flusher stdout add_entry;
+  Sys_js.set_channel_flusher stderr add_entry;
+  ()
+
 let main () =
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode =
     S.const `Windowed
     (* App.mode_aswitch ~init:`Windowed (Key.up `Space) *)
   in
-  let size = Size2.v 600. 400. in
+  let size = Size2.v 480. 300. in
   match App.init ~hidpi ~size ~mode ~surface:`Other () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
+      setup_log ();
       Test.env_setup ();
       App.run ();
       App.sink_event (E.map App.release App.quit)
