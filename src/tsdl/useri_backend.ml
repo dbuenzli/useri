@@ -89,7 +89,6 @@ module Key = struct
   let pp_id = Useri_backend_base.Key.pp_id
 
   let any_down = Useri_backend_base.Key.any_down
-  let any_repeat = Useri_backend_base.Key.any_repeat
   let any_up = Useri_backend_base.Key.any_up
   let any_holds = Useri_backend_base.Key.any_holds
   let down = Useri_backend_base.Key.down
@@ -153,9 +152,8 @@ module Key = struct
 
   let sdl_down e =
     let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
-    let repeat = Sdl.Event.(get e keyboard_repeat) <> 0 in
     let step = Step.create () in
-    Useri_backend_base.Key.handle_down ~step id ~repeat;
+    Useri_backend_base.Key.handle_down ~step id;
     Step.execute step;
     ()
 

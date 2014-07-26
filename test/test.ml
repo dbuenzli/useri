@@ -50,15 +50,11 @@ let test_mouse () =
 let test_key () =
   let mname = "Key" in
   trace_e Key.pp_id mname "any_down" Key.any_down;
-  trace_e Key.pp_id mname "any_repeat" Key.any_repeat;
   trace_e Key.pp_id mname "any_up" Key.any_up;
+  trace_s pp_bool mname "any_holds" Key.any_holds;
   trace_e pp_unit mname "down (`Digit 1)" (Key.down (`Digit 1));
   trace_s pp_bool mname "holds (`Digit 1)" (Key.holds (`Digit 1));
   trace_e pp_unit mname "up (`Digit 1)" (Key.up (`Digit 1));
-  trace_e pp_unit mname
-    "down ~repeat:true (`Digit 2)" (Key.down ~repeat:true (`Digit 2));
-  trace_e pp_unit mname "up (`Digit 2)" (Key.up (`Digit 2));
-  trace_s pp_bool mname "any_holds" Key.any_holds;
   trace_s pp_bool mname "alt" Key.alt;
   trace_s pp_bool mname "ctrl" Key.ctrl;
   trace_s pp_bool mname "meta" Key.meta;

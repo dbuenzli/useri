@@ -65,13 +65,11 @@ module Key = struct
   (* Key events *)
 
   let any_down, send_any_down = E.create ()
-  let any_repeat, send_any_repeat = E.create ()
   let any_up, send_any_up = E.create ()
   let down_count = ref 0
   let any_holds, set_any_holds = S.create false
 
   let down_event = Hashtbl.create 47
-  let repeat_event = Hashtbl.create 47
   let up_event = Hashtbl.create 47
 
   let def_event event id = try fst (Hashtbl.find event id) with
@@ -84,9 +82,7 @@ module Key = struct
   with Not_found -> ()
 
   let up id = def_event up_event id
-  let down ?(repeat = false) id =
-    if repeat then def_event repeat_event id else
-    def_event down_event id
+  let down id = def_event down_event id
 
   (* Key signals *)
 
@@ -144,28 +140,21 @@ module Key = struct
     (snd lshift) ~step false;
     (snd rshift) ~step false;
     Hashtbl.reset down_event;
-    Hashtbl.reset repeat_event;
     Hashtbl.reset up_event;
     Hashtbl.reset state_signal;
     ()
 
-  let handle_down ~step id ~repeat =
-    if repeat then begin
-      send_any_repeat ~step id;
-      send_event ~step repeat_event id;
-    end else begin
-      send_any_down ~step id;
-      send_any_repeat ~step id;
-      incr down_count; set_any_holds ~step true;
-      send_event ~step down_event id;
-      send_event ~step repeat_event id;
-      set_signal ~step id true;
-    end;
+  let handle_down ~step id =
+    incr down_count;
+    send_any_down ~step id;
+    set_any_holds ~step true;
+    send_event ~step down_event id;
+    set_signal ~step id true;
     ()
 
   let handle_up ~step id =
-    send_any_up ~step id;
     decr down_count;
+    send_any_up ~step id;
     if !down_count <= 0 then (down_count := 0; set_any_holds ~step false);
     send_event ~step up_event id;
     set_signal ~step id false;

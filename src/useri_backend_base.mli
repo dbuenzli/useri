@@ -40,10 +40,9 @@ module Key : sig
   (** {1 Key events and signals} *)
 
   val any_down : id event
-  val any_repeat : id event
   val any_up : id event
   val any_holds : bool signal
-  val down : ?repeat:bool -> id -> unit event
+  val down : id -> unit event
   val up : id -> unit event
   val holds : id -> bool signal
   val alt : bool signal
@@ -55,7 +54,7 @@ module Key : sig
 
   val init : step:Step.t -> unit
   val release : step:Step.t -> unit
-  val handle_down : step:Step.t -> id -> repeat:bool -> unit
+  val handle_down : step:Step.t -> id -> unit
   val handle_up : step:Step.t -> id -> unit
 end
 

@@ -75,7 +75,17 @@ module Mouse : sig
       down. *)
 end
 
-(** User keyboard. *)
+(** User keyboard.
+
+    Have a look at {!Useri_jsoo}'s documentation for important
+    information about [`Jsoo] backend key handling.
+
+    {b Note.} There are no key repeat events. Key repeat events are
+    mostly useful in two cases, first during text input and this is
+    automatically handled by {!Text} events. Second, for controling
+    changes to a variable (e.g. scrolling) and in that case it is
+    better to use a continuous function of time durring the time
+    spanned between the up and down event TODO link to fun. *)
 module Key : sig
 
   (** {1 Key identifiers} *)
@@ -113,39 +123,28 @@ module Key : sig
   (** [pp_id ppf id] prints an unspecified representation of [id] on
       [ppf]. *)
 
-  (** {1 Key events and signals} *)
+  (** {1 Key events and signals}
+
+      Some of the signals below have caveats to consider in very
+      improbable corner cases, see note on {{!semantics}semantics}.  *)
 
   val any_down : id event
   (** [any_down] occurs whenever a key goes down. *)
-
-  val any_repeat : id event
-  (** [any_repeat] occurs whenever a key goes down and continues to
-      occur at an unspecified frequency until all the keys go up. *)
 
   val any_up : id event
   (** [any_up] occurs whenever a key goes up. *)
 
   val any_holds : bool signal
-  (** [any_holds] is [true] whenever any key is down.
+  (** [any_holds] is [true] whenever any key is down. *)
 
-      {b Warning.} See note on {{!semantics}semantics}. *)
-
-  val down : ?repeat:bool -> id -> unit event
-  (** [down repeat id] occurs whenever the key [id] goes down.  If
-      [repeat] is [true] (defaults to [false]) the event continues to
-      occur at an unspecified frequency until the key goes up.
-
-      {b Warning.} See note on {{!semantics}semantics}. *)
+  val down : id -> unit event
+  (** [down id] occurs whenever the key [id] goes down. *)
 
   val up : id -> unit event
-  (** [up id] occurs whenever the key [id] goes up.
-
-      {b Warning.} See note on {{!semantics}semantics}. *)
+  (** [up id] occurs whenever the key [id] goes up. *)
 
   val holds : id -> bool signal
-  (** [holds id] is [true] whenever the key [id] is down.
-
-      {b Warning.} See note on {{!semantics}semantics}. *)
+  (** [holds id] is [true] whenever the key [id] is down. *)
 
   (** {1 Key modifiers signals} *)
 
@@ -176,10 +175,7 @@ module Key : sig
 
       If keys are hold by the user during initialisation of [Useri],
       {!any_holds} and {!holds} may initially wrongly be [false]
-      until corresponding keys are released.
-
-      In the [`Tsdl] backend multiple {!repeat} events don't work.
-      TODO. y*)
+      until corresponding keys are released. *)
 end
 
 (** User text keyboard input and clipboard. *)
