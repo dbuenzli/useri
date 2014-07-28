@@ -62,16 +62,22 @@ let test_key () =
   ()
 
 let test_text set_clipboard =
+  if Useri.App.backend = `Jsoo then ((* API unsupported at the moment. *)) else
   let mname = "Text" in
-  Text.set_input_enabled true;
-  trace_s pp_bool mname "input_enabled" Text.input_enabled;
+  let pp_editing ppf (s, pos, l) = pp ppf "(%S,%d,%d)" s pos l in
+  Text.set_input_enabled (S.const true);
   trace_e pp_str mname "input" Text.input;
-  trace_e (fun ppf (s,pos,l) -> pp ppf "(%S,%d,%d)" s pos l) mname "editing"
-    Text.editing;
-  trace_s (pp_opt pp_str_esc) mname "clipboard" Text.clipboard;
-  match set_clipboard with
-  | Some s as c -> log "Setting clipboard to %S" s; Text.set_clipboard c
+  trace_e pp_editing mname "editing" Text.editing;
+  trace_s pp_str_esc mname "clipboard" Text.clipboard;
+  begin match set_clipboard with
+  | Some s ->
+      let cset, send_cset = E.create () in
+      Text.set_clipboard_setter cset;
+      log "Setting clipboard to %S" s;
+      send_cset s;
   | None -> ()
+  end;
+  ()
 
 let test_drop () =
   let mname = "Drop" in

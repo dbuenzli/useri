@@ -13,10 +13,11 @@ let execname =
   try Filename.chop_extension base with
   | Invalid_argument _ (* this API is pathetic *) -> base
 
-let warn msg = Useri_backend_base.App.backend_log `Warning msg
-let warn_time () = warn "performance.now () missing, using Date.now ()"
-let warn_drag () = warn "Drag.file event not supported"
-let warn_but () = warn "unexpected e.which"
+let log_warn msg = Useri_backend_base.App.backend_log `Warning msg
+let log_err msg = Useri_backend_base.App.backend_log `Error msg
+let warn_time () = log_warn "performance.now () missing, using Date.now ()"
+let warn_drag () = log_warn "Drag.file event not supported"
+let warn_but () = log_warn "unexpected e.which"
 let err_not_jsoo_anchor = "not a useri.jsoo anchor"
 let err_no_gl = "`Gl unsupported for WebGL use `Other"
 let err_init = "Useri not initialized"
@@ -30,6 +31,8 @@ module Ev = struct
     ids := Dom.addEventListener node e h (Js.bool false) :: !ids;
     ()
 end
+
+let canvas : Dom_html.canvasElement Js.t option ref = ref None
 
 module Mouse = struct
   let pos, set_pos = S.create P2.o
@@ -185,12 +188,80 @@ module Key = struct
 end
 
 module Text = struct
-  let input_enabled : bool signal = fst (S.create false)
-  let set_input_enabled : bool -> unit = fun _ -> ()
-  let input : string event = fst (E.create ())
-  let editing : (string * int * int) event = fst (E.create ())
-  let clipboard : string option signal = fst (S.create None)
-  let set_clipboard : string option -> unit = fun s -> failwith "TODO"
+
+  let (input : string event), send_input = E.create ()
+  let (editing : (string * int * int) event), send_editing = E.create ()
+
+  (* The following doesn't handle dead keys correctly. *)
+
+  let hidden_input = ref None
+  let input_cb i e =
+    if (Js.Optdef.test ((Js.Unsafe.coerce e) ## data))
+    then send_input (Js.to_string ((Js.Unsafe.coerce e) ## data))
+    else send_input (Js.to_string (i ## value));
+    i ## value <- (Js.string "");
+    false
+
+  let start_text_input () =
+    if true then invalid_arg "Unsupported in this backend" else
+    (* This shows how we could solve the problem. With input
+       events (supported everywhere) we can't handle deadkeys correctly,
+       but textInput does, though we don't get to see the editing events
+       like in sdl. I'm not sure it's possible to integrate the scheme
+       without getting Key events through the same input field. This
+       needs further thinking. *)
+    match !canvas with
+    | None -> log_err err_init
+    | Some canvas ->
+        let i = Dom_html.(createInput ~_type:(Js.string "text") document) in
+        i ## style ## position <- Js.string "absolute";
+        i ## style ## opacity <- Js.def (Js.string "0");
+        i ## style ## pointerEvents <- Js.string "none";
+        i ## style ## zIndex <- Js.string "0";
+        let e =
+          if Js.Optdef.test ((Js.Unsafe.variable "window.TextEvent"))
+          then (Dom.Event.make "textInput")
+          else (Dom_html.Event.input)
+        in
+        Ev.cb i e input_cb;
+        match Js.Opt.to_option ((canvas :> Dom.node Js.t) ## parentNode)
+        with
+        | None -> log_err "canvas has no parent"
+        | Some p ->
+            Dom.insertBefore p i (Js.Opt.return canvas);
+            (Js.Unsafe.coerce i) ## focus ();
+            hidden_input := Some (i :> Dom_html.inputElement Js.t);
+            ()
+
+  let stop_text_input () =
+    if true then invalid_arg "Unsupported in this backend" else
+    match !hidden_input with
+    | None -> ()
+    | Some i ->
+        hidden_input := None;
+        match Js.Opt.to_option ((i :> Dom.node Js.t) ## parentNode) with
+        | None -> ()
+        | Some p -> ignore (p ## removeChild (i))
+
+
+  let input_enabled = ref (S.const ())
+  let set_input_enabled enabled =
+    let enabler enabled =
+      if enabled
+      then start_text_input ()
+      else stop_text_input ()
+    in
+    S.stop !input_enabled;
+    input_enabled := S.map enabler enabled;
+    ()
+
+  (* That could be an option http://www.w3.org/TR/clipboard-apis/.
+     But except for the result of set_clipboard_setter it seems hard
+     to be able to provide Useri's interface on top of that. *)
+
+  let clipboard : string signal = fst (S.create "")
+  let set_clipboard_setter : string event -> unit =
+    fun e -> invalid_arg "Unsupported in this backend"
 end
 
 module Drop : sig
@@ -334,8 +405,6 @@ module Surface = struct
 
   let size : size2 signal = fst (S.create Size2.zero)
   let update : unit -> unit = fun () -> ()
-
-  let canvas : Dom_html.canvasElement Js.t option ref = ref None
 
   let anchor () = match !canvas with
   | None -> invalid_arg err_init

@@ -18,6 +18,8 @@ let ( >>= ) x f = match x with
 | `Error _ as e -> e
 | `Ok v -> f v
 
+let log_err msg = Useri_backend_base.App.backend_log `Error msg
+
 (* Mouse *)
 
 module Mouse = struct
@@ -78,7 +80,8 @@ module Mouse = struct
     send_dpos ~step dpos;
     Step.execute step
 
-  let sdl_init step = ()
+  let init step = ()
+  let release step = ()
 end
 
 (* Keyboard *)
@@ -174,13 +177,21 @@ module Text = struct
 
   (* Text keyboard input *)
 
-  let input_enabled, set_input_enabled = S.create false
+  let input_enabled = ref (S.const ())
+  let set_input_enabled enabled =
+    let enabler enabled =
+      if enabled then Sdl.start_text_input () else Sdl.stop_text_input ()
+    in
+    S.stop !input_enabled;
+    input_enabled := S.map enabler enabled;
+    ()
+
   let input, send_input = E.create ()
   let editing, send_editing = E.create ()
 
-  let set_input_enabled b =
-    if b then Sdl.start_text_input () else Sdl.stop_text_input ();
-    set_input_enabled b
+  let sdl_input e =
+    let text = Sdl.Event.(get e text_input_text) in
+    send_input text
 
   let sdl_editing e =
     let text = Sdl.Event.(get e text_editing_text) in
@@ -188,23 +199,38 @@ module Text = struct
     let len = Sdl.Event.(get e text_editing_length) in
     send_editing (text, start, len)
 
-  let sdl_input e =
-    let text = Sdl.Event.(get e text_input_text) in
-    send_input text
-
   (* Clipboard *)
 
-  let clipboard, set_clipboard = S.create None
-
-  let sdl_clipboard_update step =
-    if not (Sdl.has_clipboard_text ()) then set_clipboard ~step None else
+  let sdl_clipboard, sdl_clipboard_send = E.create ()
+  let sdl_clipboard_send step =
+    if not (Sdl.has_clipboard_text ()) then sdl_clipboard_send ~step "" else
     match Sdl.get_clipboard_text () with
-    | `Ok c -> set_clipboard ~step (Some c)
-    | `Error e -> assert false (* TODO log *)
+    | `Ok c -> sdl_clipboard_send ~step c
+    | `Error e -> log_err e
 
-  let set_clipboard v = set_clipboard ?step:None v
+  let sdl_clipboard_update () =
+    let step = React.Step.create () in
+    sdl_clipboard_send step;
+    React.Step.execute step
 
-  let sdl_init step = sdl_clipboard_update step
+  let app_setters, app_setter_send = E.create ()
+  let set_clipboard_setter setter = app_setter_send setter
+  let app_clipboard =
+    let set v =
+      begin match Sdl.set_clipboard_text v with
+      | `Ok () -> () | `Error e -> log_err e
+      end;
+      v
+    in
+    E.map set (E.switch E.never app_setters)
+
+  let clipboard = S.hold "" (E.select [sdl_clipboard; app_clipboard])
+
+  let init step = sdl_clipboard_send step
+  let release step =
+    set_input_enabled (S.const false);
+    app_setter_send ~step E.never;
+    ()
 end
 
 (* File drag and drop *)
@@ -651,7 +677,9 @@ module App = struct
   let release ?(sinks = true) () =
     let step = Step.create () in
     send_stop ~step ();
+    Mouse.release step;
     Key.release step;
+    Text.release step;
     Step.execute step;
     Useri_backend_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
@@ -678,9 +706,9 @@ module App = struct
     set_pos ~step (window_pos ());
     set_size ~step (window_size ());
     Surface.set_size ~step (drawable_size ());
-    Mouse.sdl_init step;
+    Mouse.init step;
     Key.init step;
-    Text.sdl_init step;
+    Text.init step;
     Drop.sdl_init step;
     React.Step.execute step;
     let step = React.Step.create () in
@@ -704,10 +732,7 @@ module App = struct
     | `Mouse_motion -> Mouse.sdl_motion (window_size ()) e
     | `Text_editing -> Text.sdl_editing e
     | `Text_input -> Text.sdl_input e
-    | `Clipboard_update ->
-        let step = React.Step.create () in
-        Text.sdl_clipboard_update step;
-        React.Step.execute step
+    | `Clipboard_update -> Text.sdl_clipboard_update ()
     | `Drop_file -> Drop.sdl_file e
     | _ -> ()
 

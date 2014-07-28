@@ -22,6 +22,8 @@ module Key : sig
   (** [set_event_target target] sets the event target to target. If [None]
       the canvas of the surface will be used.
 
+      {b Warning.} This may be removed in the future.
+
       {b Important.} You need to set the event target before
       calling {!Useri.App.init}. And a {!Useri.App.release} sets
       the event target back to [None]. *)

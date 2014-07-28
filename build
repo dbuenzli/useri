@@ -21,6 +21,17 @@ action ()
                                 useri_tsdl.cma useri_tsdl.cmxa
                     ;;
       tests)        $OCAMLBUILD tests.otarget ;;
+      test-tsdl)    action backends;
+                    shift
+                    rm -f $1.native
+                    $OCAMLBUILD $1.cmx
+                    cd _build
+                    ocamlfind ocamlopt -linkpkg -g -package tsdl \
+                    -package gg -package react \
+                    src/useri_base.cmxa  src/tsdl/useri_tsdl.cmxa \
+                    src/useri.cmxa test/test.cmx test/$1.cmx -o test/$1.native
+                    ln -s _build/test/$1.native ../$1.native
+                    ;;
       clean)        $OCAMLBUILD -clean ;;
       jsoo)         action backends
                     shift;

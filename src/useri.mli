@@ -29,8 +29,10 @@ open React
 
 (** User mouse.
 
-    {b Note.} Coordinates are in window normalized coordinates with
-    (0,0) bot left and (1,1) top right. *)
+    Mouse events are only reported whenever the mouse is
+    in the application surface. Coordinates are in surface noralized
+    coordinates with [(0,0)] corresponding to the bottom left corner
+    and [(1,1)] to the top right corner. *)
 module Mouse : sig
 
   (** {1 Mouse position} *)
@@ -77,15 +79,17 @@ end
 
 (** User keyboard.
 
+    These events and signals should only be used for treating keys as
+    actuators. For getting textual input use the support in the
+    {!Text} module.
+
+    For the [`Jsoo] backend consult the important
+    {{!Useri_jsoo.Key.get}information} about key handling.
+
     {!Useri_jsoo.Key} has important information about key handling
     in the [`Jsoo] backend.
 
-    {b Note.} There are no key repeat events; those are mostly useful
-    in two cases. First during text input and this is automatically
-    handled by {!Text} events. Second, for controling changes to a
-    variable (e.g. scrolling) and in that case it is better to use a
-    continuous function of time durring the time spanned between the
-    up and down event TODO link to fun. *)
+    {{!repeat}Note} about the absence of key repeat events. *)
 module Key : sig
 
   (** {1 Key identifiers} *)
@@ -166,6 +170,10 @@ module Key : sig
 
   (** {1:semantics Semantic subtleties}
 
+      If keys are hold by the user during initialisation of [Useri],
+      {!any_holds} and {!holds} may initially wrongly be [false]
+      until corresponding keys are released.
+
       {!down}, {!up} and {!holds} may not be accurate the first time
       they are created inside a {!React} update cycle in which they
       should occur or update themselves. Note that this is quite
@@ -173,40 +181,55 @@ module Key : sig
       functions are called as a dependency of the [Useri.Key.any_*]
       events or signals.
 
-      If keys are hold by the user during initialisation of [Useri],
-      {!any_holds} and {!holds} may initially wrongly be [false]
-      until corresponding keys are released. *)
+      {1:repeat Key repeat events}
+
+      [Useri] doesn't expose key repeat events. There are two main use
+      cases for key repeat. First during text input, this is handled
+      by {!Text} events. Second, for controlling changes to a variable
+      over time (e.g. scrolling with the keyboard). In the latter case
+      it is better to use a continous function of time in the time
+      spanned by the up and down events TODO example. *)
 end
 
-(** User text keyboard input and clipboard. *)
+(** User textual input and clipboard.
+
+    {b Warning} This API is currently unsupported in the `Jsoo backend. *)
 module Text : sig
 
-  (** {1 Text keyboard input} *)
+  (** {1 Textual input}
 
-  val input_enabled : bool signal
-  (** [input_enabled] is [true] if {!input} and {!editing} events
-      are enabled. *)
+      To use keyboard keys as actuators use the {!Key} module. *)
 
-  val set_input_enabled : bool -> unit
-  (** [enable_input b] allows to get {!input} and {!editing} events.
-
-      {b TODO} Use event. *)
+  val set_input_enabled : bool signal -> unit
+  (** [set_input_enabled enabled] uses the signal [enabled] to determine
+      whether {!input} and {!editing} events are enabled. Initially set
+      to [S.const false]. *)
 
   val input : string event
-  (** [input] is the text input. *)
+  (** [input] occurs whenever text is input by the user and
+      the signal given to {!set_input_enabled} is [true]. *)
 
   val editing : (string * int * int) event
-  (** [editing] is the edited string the start position and the length. *)
+  (** [editing] may occur with [(text, cpos, sel_len)] before {!input}
+      whenever text is being composited for example if multiple key
+      strokes are needed in order to input a character. [text] is the
+      text being composed, [cpos] is the cursor position in the text
+      and [sel_len] the selection length (if any). Only occurs if
+      the signal given to {!set_input_enabled} is [true]. *)
 
   (** {1 Clipboard} *)
 
-  val clipboard : string option signal
-  (** [clipboard] is the clipboard's textual contents. *)
+  val clipboard : string signal
+  (** [clipboard] is the clipboard's textual content (if any). This
+      signal is defined by changes in the application's environement
+      and occurences of the event given to {!set_clipboard_setter}. *)
 
-  val set_clipboard : string option -> unit
-  (** [set_clipboard s] sets the clipboard to [s].
+  val set_clipboard_setter : string event -> unit
+  (** [set_clipboard_setter setter] on occurences of [setter] sets the
+      clipboard's textual content. Initially set to [E.never]. Note
+      that [Some ""] is the same as
 
-      {b TODO} Use event. *)
+      {b Warning.} [setter] should not depend on {!clipboard}. *)
 end
 
 (** User drag and drop. *)
