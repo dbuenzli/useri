@@ -126,7 +126,7 @@ let test_surface () =
   trace_s V2.pp mname "size" Surface.size;
   trace_e pp_refresh mname "refresh" Surface.refresh;
   let animate _ =
-    App.sink_signal (S.trace (log "%g") (Surface.animate ~span:0.3))
+    trace_s pp_float mname "animate" (Surface.animate ~span:0.3)
   in
   App.sink_event (E.map animate (Time.tick 1.1));
   let refresher = E.select [ Time.tick 1.5; Time.tick 1.6 ] in

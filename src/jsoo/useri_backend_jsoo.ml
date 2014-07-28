@@ -60,7 +60,6 @@ module Mouse = struct
     epos
 
   let down_cb c e =
-(*    Dom.preventDefault e; *)
     let step = Step.create () in
     let epos = set_mouse_pos ~step c e in
     let set, send_down = match Js.Optdef.to_option (e ## which) with
@@ -71,10 +70,10 @@ module Mouse = struct
     in
     set ~step true; send_down ~step epos;
     React.Step.execute step;
-    true
+    (Js.Unsafe.coerce c) ## focus (); (* since we prevent default *)
+    false
 
   let up_cb c e =
-(*    Dom.preventDefault e; *)
     let step = Step.create () in
     let epos = set_mouse_pos ~step c e in
     let set, send_up = match Js.Optdef.to_option (e ## which) with
@@ -85,7 +84,7 @@ module Mouse = struct
     in
     set ~step false; send_up ~step epos;
     React.Step.execute step;
-    true
+    false
 
   let move_cb c e =
     Dom.preventDefault e;
@@ -114,7 +113,7 @@ module Key = struct
 
   (* For browser keyboard handling see http://unixpapa.com/js/key.html *)
 
-  let id_of_event e = match e ## keyCode with
+  let id_of_keycode kc = match kc with
   | n when 48 <= n && n <= 57 -> `Digit (n - 48)
   | n when 65 <= n && n <= 90 -> `Uchar n
   | n when 96 <= n && n <= 105 -> `Digit (n - 96)
@@ -140,24 +139,50 @@ module Key = struct
   | 93 -> `Meta `Right
   | n -> `Unknown n
 
+  let event_target : Dom_html.eventTarget Js.t option ref = ref None
+  let set_event_target t = event_target := t
+  let event_target () = !event_target
+
+  module Int = struct
+    type t = int
+    let compare : int -> int -> int = Pervasives.compare
+  end
+
+  module Iset = Set.Make (Int)
+
+  let downs = ref Iset.empty (* to suppress key repeat *)
+
   let down_cb _ e =
-    Dom.preventDefault e;
-    let id = id_of_event e in
+    let kc = e ## keyCode in
+    if Iset.mem kc !downs then false else
+    let id = id_of_keycode kc in
     let step = Step.create () in
     Useri_backend_base.Key.handle_down ~step id;
     Step.execute step;
+    downs := Iset.add kc !downs;
     false
 
   let up_cb _ e =
-    Dom.preventDefault e;
-    let id = id_of_event e in
+    let kc = e ## keyCode in
+    let id = id_of_keycode kc in
     let step = Step.create () in
     Useri_backend_base.Key.handle_up ~step id;
     Step.execute step;
+    downs := Iset.remove kc !downs;
     false
 
+  let setup_cbs c =
+    let t = match event_target () with None -> c | Some t -> t in
+    Ev.cb t Dom_html.Event.keydown down_cb;
+    Ev.cb t Dom_html.Event.keyup up_cb;
+    set_event_target (Some t);
+    ()
+
   let init = Useri_backend_base.Key.init
-  let release = Useri_backend_base.Key.release
+  let release ~step =
+    Useri_backend_base.Key.release ~step;
+    set_event_target None;
+    ()
 end
 
 module Text = struct
@@ -337,10 +362,9 @@ module Surface = struct
         Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
         Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
         Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
-        Ev.cb c Dom_html.Event.keydown Key.down_cb;
-        Ev.cb c Dom_html.Event.keyup Key.up_cb;
-        c ## setAttribute ("tabindex", "0");
-        (Js.Unsafe.coerce c) ## focus ();
+        c ## setAttribute ("tabindex", "1");
+(*        (Js.Unsafe.coerce c) ## focus (); *)
+        Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
         canvas := Some c
     | `Gl _ -> invalid_arg err_no_gl
 

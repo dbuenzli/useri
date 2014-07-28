@@ -4,6 +4,11 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
+(* Traces events and signals.
+
+   Use the query string to enable and disable modules, e.g. add
+   ?key=true to only get Key module events and signals. *)
+
 open Gg
 open React
 open Useri
@@ -20,13 +25,20 @@ let setup_log () =
   Sys_js.set_channel_flusher stderr add_entry;
   ()
 
+let setup_jsoo global_key =
+  let target = (Dom_html.window :> Dom_html.eventTarget Js.t) in
+  if global_key then Useri_jsoo.Key.set_event_target (Some target);
+  ()
+
 let main () =
+  let global_key = App.env "global-key" ~default:false bool_of_string in
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode =
     S.const `Windowed
     (* App.mode_aswitch ~init:`Windowed (Key.up `Space) *)
   in
   let size = Size2.v 480. 300. in
+  setup_jsoo global_key;
   match App.init ~hidpi ~size ~mode ~surface:`Other () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->

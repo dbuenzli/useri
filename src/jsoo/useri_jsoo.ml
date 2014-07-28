@@ -4,8 +4,8 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-let anchor_of_canvas = Useri_backend_jsoo.Surface.anchor_of_canvas
-let canvas_of_anchor = Useri_backend_jsoo.Surface.canvas_of_anchor
+module Key = Useri_backend_jsoo.Key
+module Surface = Useri_backend_jsoo.Surface
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

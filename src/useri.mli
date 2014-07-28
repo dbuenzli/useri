@@ -77,15 +77,15 @@ end
 
 (** User keyboard.
 
-    Have a look at {!Useri_jsoo}'s documentation for important
-    information about [`Jsoo] backend key handling.
+    {!Useri_jsoo.Key} has important information about key handling
+    in the [`Jsoo] backend.
 
-    {b Note.} There are no key repeat events. Key repeat events are
-    mostly useful in two cases, first during text input and this is
-    automatically handled by {!Text} events. Second, for controling
-    changes to a variable (e.g. scrolling) and in that case it is
-    better to use a continuous function of time durring the time
-    spanned between the up and down event TODO link to fun. *)
+    {b Note.} There are no key repeat events; those are mostly useful
+    in two cases. First during text input and this is automatically
+    handled by {!Text} events. Second, for controling changes to a
+    variable (e.g. scrolling) and in that case it is better to use a
+    continuous function of time durring the time spanned between the
+    up and down event TODO link to fun. *)
 module Key : sig
 
   (** {1 Key identifiers} *)

@@ -4,17 +4,70 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** js_of_ocaml specifics
+(** js_of_ocaml specifics *)
 
-    Key: cannot distinguish between enter and return.
-         cannot distinguish between
-         (`Shift | `Meta | `Ctrl | `Alt left and right.
+(** User keyboard.
+
+    Consult information about {{!get}getting keyboard events} and
+    {{!limits}limitations}.
 *)
+module Key : sig
 
-(** {1 Anchors} *)
+(** {1:src Keyboard event target} *)
 
-val anchor_of_canvas : Dom_html.canvasElement Js.t -> Useri_base.anchor
-val canvas_of_anchor : Useri_base.anchor -> Dom_html.canvasElement Js.t
+  val event_target : unit -> Dom_html.eventTarget Js.t option
+  (** [source ()] is the event target used for keyboard events. *)
+
+  val set_event_target : Dom_html.eventTarget Js.t option -> unit
+  (** [set_event_target target] sets the event target to target. If [None]
+      the canvas of the surface will be used.
+
+      {b Important.} You need to set the event target before
+      calling {!Useri.App.init}. And a {!Useri.App.release} sets
+      the event target back to [None]. *)
+
+(** {1:get Getting keyboard events}
+
+    There are a few things you need to make sure are setup in order
+    to get the keyboard events.
+
+    First to get events directly on the HTML canvas associated to the
+    surface it needs to have a [tabindex] attribute. If [Useri]
+    creates the canvas it sets one, but don't forget to set one if you
+    provide the canvas at initialization time through an
+    {{!Surface.anchor_of_canvas}anchor}. Events will only be generated
+    once the user has focused the canvas in one way or another
+    (e.g. by clicking on it). The latter operation may introduce a
+    selection box around the canvas, the selection box can be hidden
+    by applying the CSS rule [{ outline: none; }] on the canvas.
+
+    You can also choose to get the keyboard events from another event
+    target using the {!set_event_target} before initializing the
+    application. For example using the {!Dom_html.window} will prevent
+    the user from having to focus in order for you to get keyboard
+    events.
+
+    {1:limits Limitations}
+
+    The following limitations exist (they may be lifted in the future).
+    {ul
+    {- The backend cannot distinguish between [`Enter] and
+      [`Return] keys. [`Return] is always returned.}
+    {- The backend cannot distinguish between [`Left] and [`Right] keys for
+       modifiers [`Alt, `Ctrl, `Meta] and [`Shift]. It is advised to use
+       handless {!Useri.Key.alt}, {!Useri.Key.ctrl}, {!Useri.Key.meta} and
+       {!Useri.Key.shift} for detecting modifiers.}}
+*)
+end
+
+
+module Surface : sig
+
+  (** {1:anchor Anchors} *)
+
+  val anchor_of_canvas : Dom_html.canvasElement Js.t -> Useri_base.anchor
+  val canvas_of_anchor : Useri_base.anchor -> Dom_html.canvasElement Js.t
+end
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

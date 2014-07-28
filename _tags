@@ -14,17 +14,12 @@
 <**/*.js> : weak_js
 <test> : include
 <test/*> : package(gg), package(react)
-<test/min.byte> : package(js_of_ocaml), basefirst, use_useri_base, \
-                  use_useri_jsoo, use_useri
-<test/min.native> : package(tsdl), basefirst, \
-                  use_useri_base, use_useri_tsdl, use_useri
-<test/*tsdl*> : package(tsdl), basefirst, \
-                use_useri_base, use_useri_tsdl, use_useri
+<test/min.byte> : package(js_of_ocaml), base, jsoo, useri
+<test/min.native> : package(tsdl), tsdl
+<test/*tsdl*> : package(tsdl), base, tsdl, useri
 <test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml.syntax), \
-                syntax(camlp4o), basefirst, \
-                use_useri_base, use_useri_jsoo, \
-                use_useri, weak_js
+                syntax(camlp4o), base, jsoo, useri, weak_js
 <test/*tsdl*fut*> : thread, package(fut.select), package(fut.r), package(fut)
 <test/*tsdl*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
 <test/*life*> : package(js_of_ocaml), package(vg), package(vg.jsoo), \
-                basefirst, use_useri_base, use_useri_jsoo, use_useri,weak_js
+                jsoo, weak_js
