@@ -13,8 +13,7 @@ let execname =
   try Filename.chop_extension base with
   | Invalid_argument _ (* this API is pathetic *) -> base
 
-let log fmt = Format.printf  (fmt ^^ "@\n%!")
-let warn fmt = Format.eprintf ("Useri: " ^^ fmt ^^ "@.")
+let warn msg = Useri_backend_base.App.backend_log `Warning msg
 let warn_time () = warn "performance.now () missing, using Date.now ()"
 let warn_drag () = warn "Drag.file event not supported"
 let warn_but () = warn "unexpected e.which"
@@ -510,6 +509,7 @@ module App = struct
     send_stop ~step ();
     Key.release ~step;
     Step.execute step;
+    Useri_backend_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
     Ev.release ();
     ()
@@ -527,6 +527,7 @@ module App = struct
   type backend = Useri_backend_base.App.backend
   let backend = `Jsoo
   let pp_backend = Useri_backend_base.App.pp_backend
+  let set_backend_logger = Useri_backend_base.App.set_backend_logger
 
   type backend_scheme = Useri_backend_base.App.backend_scheme
   let backend_scheme = `Async

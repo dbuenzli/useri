@@ -610,6 +610,11 @@ module App : sig
   (** [pp_backend ppf b] prints an unspecified representation of
       [c] on [ppf]. *)
 
+  val set_backend_logger : ([`Warning | `Error ] -> string -> unit) -> unit
+  (** [set_backend_logger log] sets [log] to be called by backends
+      whenever non-fatal internal warnings and errors are generated.
+      The default function outputs and flushes to stderr. *)
+
   type backend_scheme = [ `Sync | `Async ]
   (** The type for backend scheme.
       {ul

@@ -112,7 +112,10 @@ module App : sig
 
   type backend_scheme = [ `Sync | `Async ]
   val pp_backend_scheme : Format.formatter -> backend_scheme -> unit
-  val invalid_on_backend_scheme : backend_scheme -> 'a
+
+  val default_backend_logger : [`Error | `Warning ] -> string -> unit
+  val set_backend_logger : ([`Error | `Warning ] -> string -> unit) -> unit
+  val backend_log : [`Error | `Warning ] -> string -> unit
 
   type cpu_count = [ `Known of int | `Unknown ]
   val pp_cpu_count : Format.formatter -> cpu_count -> unit

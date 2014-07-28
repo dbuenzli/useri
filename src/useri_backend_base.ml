@@ -248,9 +248,14 @@ module App = struct
     | `Async -> "async"
     end
 
-  let invalid_on_backend_scheme bs =
-    invalid_arg (Format.asprintf "unapplicable in %a backend scheme"
-                   pp_backend_scheme bs)
+
+  let default_backend_logger kind msg =
+    let kind = match kind with `Error -> "E" | `Warning -> "W" in
+    Printf.eprintf "Useri:%s: %s\n%!" kind msg
+
+  let backend_logger = ref default_backend_logger
+  let backend_log kind msg = !backend_logger kind msg
+  let set_backend_logger l = backend_logger := l
 
   (* Cpu count *)
 

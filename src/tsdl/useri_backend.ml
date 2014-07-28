@@ -653,6 +653,7 @@ module App = struct
     send_stop ~step ();
     Key.release step;
     Step.execute step;
+    Useri_backend_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
     match !app with
     | None -> ()
@@ -751,6 +752,7 @@ module App = struct
   type backend = Useri_backend_base.App.backend
   let backend = `Tsdl
   let pp_backend = Useri_backend_base.App.pp_backend
+  let set_backend_logger = Useri_backend_base.App.set_backend_logger
 
   type backend_scheme = Useri_backend_base.App.backend_scheme
   let backend_scheme = `Sync
