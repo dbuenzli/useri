@@ -609,7 +609,13 @@ module App : sig
   type launch_context = [ `Browser | `Gui | `Terminal ]
 
   val launch_context : launch_context
-  (** [launch_context] is the mechanism that started the program. *)
+  (** [launch_context] is the mechanism that started the program.
+
+      {b Note.} For now [`Gui] is only reported on macosx in the
+      following cases: before 10.9 we look for a [-psn_*] argument on
+      the command line, after 10.9 we look if the executable is in a
+      [MacOS] directory (indicating a bundle) and if {!Sys.getcwd} is
+      ["/"] (this is not entirely foolproof). *)
 
   val pp_launch_context : Format.formatter -> launch_context -> unit
   (** [pp_launch_context ppf c] prints an unspecified representation of

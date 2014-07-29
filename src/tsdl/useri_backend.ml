@@ -760,15 +760,33 @@ module App = struct
 
   type launch_context = Useri_backend_base.App.launch_context
   let pp_launch_context = Useri_backend_base.App.pp_launch_context
-  let launch_context =
-    (* FIXME is there something for Linux ? *)
-    let osx_psn a = String.length a > 5 && String.sub a 0 5 = "-psn_" in
-    try
-      for i = 0 to Array.length Sys.argv - 1 do
-        if osx_psn Sys.argv.(i) then raise Exit
-      done;
-      `Terminal
-    with Exit -> `Gui
+  let macosx_launch_context () =
+    let pre_10_9 () =
+      try
+        for i = 0 to Array.length Sys.argv - 1 do
+          let a = Sys.argv.(i) in
+          if (String.length a > 5 && String.sub a 0 5 = "-psn_")
+          then raise Exit
+        done;
+        None
+      with Exit -> Some `Gui
+    in
+    let post_10_9 () = (* not foolproof *)
+      if Sys.getcwd () = "/" &&
+         Filename.(basename (dirname Sys.argv.(0))) = "MacOS"
+      then Some `Gui
+      else None
+    in
+    match pre_10_9 () with
+    | Some v -> v
+    | None ->
+        match post_10_9 () with
+        | Some v -> v
+        | None -> `Terminal
+
+  let launch_context = match Sdl.get_platform () with
+  | "Mac OS X" -> macosx_launch_context ()
+  | _ -> `Terminal (* FIXME is there something for Linux ? *)
 
   (* Platform and backend *)
 
