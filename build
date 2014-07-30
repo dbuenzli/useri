@@ -2,7 +2,6 @@
 # This script is only used for developement. It is removed by the
 # distribution process.
 
-
 set -e
 
 OCAMLBUILD=${OCAMLBUILD:="ocamlbuild -tag debug -classic-display \
@@ -21,7 +20,7 @@ action ()
                                 useri_tsdl.cma useri_tsdl.cmxa
                     ;;
       tests)        $OCAMLBUILD tests.otarget ;;
-      test-tsdl)    action backends;
+      test-tsdl)    action backends
                     shift
                     rm -f $1.native
                     $OCAMLBUILD $1.cmx
@@ -31,6 +30,11 @@ action ()
                     src/useri_base.cmxa  src/tsdl/useri_tsdl.cmxa \
                     src/useri.cmxa test/test.cmx test/$1.cmx -o test/$1.native
                     ln -s _build/test/$1.native ../$1.native
+                    cd ..
+                    ;;
+      test-app)     action test-tsdl test_tsdl
+                    macosx_app Test_tsdl _build/test/test_tsdl.native \
+                    "libSDL2 libffi" test/app
                     ;;
       clean)        $OCAMLBUILD -clean ;;
       jsoo)         action backends
@@ -44,11 +48,51 @@ action ()
                      src/useri_base.cma  src/jsoo/useri_jsoo.cma \
                      src/useri.cma test/test.cmo test/$1.cmo -o test/$1.byte
                     js_of_ocaml +weak.js test/test_jsoo.byte
+                    cd ..
                     reload-browser "http://`hostname`/useri/test/$1.html"
                     ;;
       *)            $OCAMLBUILD $* ;;
     esac
 }
+
+macosx_app ()
+{
+    BUILDDIR=_build
+    APP=$1
+    EXE=$2
+    DYLIBS=$3
+    RESDIR=$4
+    mkdir -p $BUILDDIR/$APP.app/Contents
+    mkdir -p $BUILDDIR/$APP.app/Contents/MacOS
+    mkdir -p $BUILDDIR/$APP.app/Contents/Frameworks
+    mkdir -p $BUILDDIR/$APP.app/Contents/Resources
+
+    for f in $RESDIR/* ; do
+        if [ "$f" == "$RESDIR/Info.plist" ]; then
+            cp $f $BUILDDIR/$APP.app/Contents/
+        else
+            cp $f $BUILDDIR/$APP.app/Contents/Resources
+        fi
+    done
+
+    APPEXE="$BUILDDIR/$APP.app/Contents/MacOS/$APP"
+    cp $EXE $APPEXE
+
+    for libname in $DYLIBS; do
+        ID=`otool -L $APPEXE | grep -o "/.*$libname.*.dylib"`
+        NEWID="@loader_path/../Frameworks/`basename $ID`"
+        LOC="$BUILDDIR/$APP.app/Contents/Frameworks/`basename $ID`"
+        cp $ID $LOC
+        chmod u+w $LOC
+        install_name_tool -id $NEWID $LOC
+        install_name_tool -change $ID $NEWID $APPEXE
+    done
+
+    if [ ! -h $APP.app ]; then
+        ln -s $BUILDDIR/$APP.app $APP.app
+    fi
+}
+
 
 if [ $# -eq 0 ];
 then action default ;

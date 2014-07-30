@@ -8,8 +8,9 @@ open Gg
 open React
 open Useri
 
-let log fmt = Format.printf (fmt ^^ "@\n%!")
-let pp fmt = Format.fprintf fmt
+let log_formatter = ref Format.std_formatter
+let log fmt = Format.fprintf !log_formatter (fmt ^^ "@\n%!")
+let pp ppf = Format.fprintf ppf
 let pp_str = Format.pp_print_string
 let pp_str_esc ppf = pp ppf "%S"
 let pp_bool = Format.pp_print_bool
@@ -61,7 +62,7 @@ let test_key () =
   trace_s pp_bool mname "shift" Key.shift;
   ()
 
-let test_text set_clipboard =
+let test_text set_clipboard  =
   if Useri.App.backend = `Jsoo then ((* API unsupported at the moment. *)) else
   let mname = "Text" in
   let pp_editing ppf (s, pos, l) = pp ppf "(%S,%d,%d)" s pos l in

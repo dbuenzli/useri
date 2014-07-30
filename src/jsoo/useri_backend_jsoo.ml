@@ -194,7 +194,7 @@ module Text = struct
 
   (* The following doesn't handle dead keys correctly. *)
 
-  let hidden_input = ref None
+  let hidden_input : Dom_html.inputElement Js.t option ref = ref None
   let input_cb i e =
     if (Js.Optdef.test ((Js.Unsafe.coerce e) ## data))
     then send_input (Js.to_string ((Js.Unsafe.coerce e) ## data))

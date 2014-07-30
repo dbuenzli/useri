@@ -8,14 +8,38 @@ open Gg
 open React
 open Useri
 
+let redirect_logs () = match Useri.App.launch_context with
+| `Terminal -> ()
+| `Gui ->
+    let backend_log kind msg = match kind with
+    | `Warning -> Tsdl.(Sdl.log_warn Sdl.Log.category_application "%s" msg)
+    | `Error -> Tsdl.(Sdl.log_error Sdl.Log.category_application "%s" msg)
+    in
+    let ppf =
+      let b = Buffer.create 255 in
+      let out = Buffer.add_substring b in
+      let flush () = Tsdl.Sdl.log "%s" (Buffer.contents b); Buffer.clear b in
+      Format.make_formatter out flush
+    in
+    Useri.App.set_backend_logger backend_log;
+    Test.log_formatter := ppf;
+    ()
+| `Browser -> assert false
+
+let test_setup () = match Useri.App.launch_context with
+| `Terminal -> Test.cmdline_setup ()
+| `Gui -> Test.env_setup ()
+| `Browser -> assert false
+
 let main () =
+  redirect_logs ();
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
   let size = Size2.v 600. 400. in
   match App.init ~hidpi ~size ~mode () with
-  | `Error e -> Printf.eprintf "%s" e; exit 1
+  | `Error e -> Test.log "%s" e; exit 1
   | `Ok () ->
-      Test.cmdline_setup ();
+      test_setup ();
       App.run ~until:App.quit ();
       App.release ();
       exit 0
