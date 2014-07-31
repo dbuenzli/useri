@@ -24,7 +24,12 @@ let log_err msg = Useri_base.App.backend_log `Error msg
 (* Time *)
 
 module Time = struct
-  type span = float
+
+  (* Time span *)
+
+  type span = Useri_base.Time.span
+
+  (* Passing time *)
 
   let pfreqi = Sdl.get_performance_frequency ()
   let pfreq = Int64.to_float pfreqi
@@ -37,16 +42,6 @@ module Time = struct
 
   let tick_start = tick_now ()
   let elapsed () = tick_diff_secs (tick_now ()) tick_start
-
-  let tick_next now period =
-    let part = Int64.(rem now period) in
-    Int64.(add (sub now part) period)
-
-  type counter = int64
-  let counter () = tick_now ()
-  let value start =
-    let dt = Int64.sub (tick_now ()) start in
-    Int64.(to_float dt) /. pfreq
 
   module Line : sig
     type t
@@ -69,7 +64,7 @@ module Time = struct
     type action = step:React.step -> now:int64 -> int64 -> unit
     type deadline =                              (* deadline on the timeline. *)
       { time : int64;                            (* absolute deadline time. *)
-        mutable action : action }                (* action. *)
+        action : action }                        (* action. *)
 
     type t =
       { mutable heap : deadline array;
@@ -147,9 +142,19 @@ module Time = struct
     Line.add_deadline line deadline action;
     e
 
-  let pp_s ppf s = Format.fprintf ppf "%gs" s
-  let pp_ms ppf s = Format.fprintf ppf "%gms" (s *. 1e3)
-  let pp_mus ppf s = Format.fprintf ppf "%gμs" (s *. 1e6)
+  (* Counting time *)
+
+  type counter = int64
+  let counter () = tick_now ()
+  let value start =
+    let dt = Int64.sub (tick_now ()) start in
+    Int64.(to_float dt) /. pfreq
+
+  (* Pretty printing time *)
+
+  let pp_s = Useri_base.Time.pp_s
+  let pp_ms = Useri_base.Time.pp_ms
+  let pp_mus = Useri_base.Time.pp_mus
 end
 
 (* Surface *)

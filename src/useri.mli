@@ -33,7 +33,10 @@ module Time : sig
   type span = float
   (** The type for time spans, in seconds. *)
 
-  (** {1 Passing time} *)
+  (** {1 Passing time}
+
+      For timing animations, use the values described
+      {!Surface.refreshing}. *)
 
   val elapsed : unit -> span
   (** [elapsed ()] is the number of seconds elapsed since the
@@ -43,9 +46,6 @@ module Time : sig
   (** [tick span] is an event that occurs once in [span] seconds with
       the value [span - span'] where [span'] is the actual delay
       performed by the system.
-
-      Do not use [tick] for timing animation. Use the values
-      described in {!Surface.refreshing}.
 
       {b Note.} Since the system may introduce delays you cannot
       assume that two different calls to {!tick} will necessarily
