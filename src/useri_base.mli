@@ -6,27 +6,137 @@
 
 (** Backend support. *)
 
+open Gg
+open React
+
+(** User keyboard. *)
+module Key : sig
+
+  (** {1 Key identifiers} *)
+
+  type id =
+    [ `Alt of [ `Left | `Right ]
+    | `Arrow of [ `Up | `Down | `Left | `Right ]
+    | `Backspace
+    | `Ctrl of [ `Left | `Right ]
+    | `Digit of int
+    | `End
+    | `Enter
+    | `Escape
+    | `Function of int
+    | `Home
+    | `Meta of [ `Left | `Right ]
+    | `Page of [ `Up | `Down ]
+    | `Return
+    | `Shift of [ `Left | `Right ]
+    | `Space
+    | `Tab
+    | `Uchar of int
+    | `Unknown of int ]
+
+  val uchar : char -> [> `Uchar of int ]
+  val pp_id : Format.formatter -> id -> unit
+
+  (** {1 Key events and signals} *)
+
+  val any_down : id event
+  val any_up : id event
+  val any_holds : bool signal
+  val down : id -> unit event
+  val up : id -> unit event
+  val holds : id -> bool signal
+  val alt : bool signal
+  val ctrl : bool signal
+  val meta : bool signal
+  val shift : bool signal
+
+  (** {1 Backend driving function} *)
+
+  val init : step:Step.t -> unit
+  val release : step:Step.t -> unit
+  val handle_down : step:Step.t -> id -> unit
+  val handle_up : step:Step.t -> id -> unit
+end
+
+(** User drag and drop. *)
+module Drop : sig
+  type file
+  module File : sig
+    type t = file
+    val create : unit -> ('a -> t) * (t -> 'a option)
+  end
+end
+
+(** Time. *)
+module Time : sig
+  type span = float
+  val pp_s : Format.formatter -> span -> unit
+  val pp_ms : Format.formatter -> span -> unit
+  val pp_mus : Format.formatter -> span -> unit
+end
+
+(** Human factors. *)
+module Human : sig
+  val noticed : Time.span
+  val interrupted : Time.span
+  val left : Time.span
+  val touch_target_size : float
+  val touch_target_size_min : float
+  val touch_target_pad : float
+  val average_finger_width : float
+end
+
+(** Surface. *)
 module Surface : sig
+
   type anchor
-  (** The type for surface anchors. *)
 
   module Anchor : sig
     type t = anchor
     val create : unit -> ('a -> t) * (t -> 'a option)
     val none : t
   end
+
+  module Gl : sig
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    type depth = [ `D_24 | `D_16 ]
+    type stencil = [ `S_8 ]
+    type spec =
+      { accelerated : bool option;
+        multisample : int option;
+        doublebuffer : bool;
+        stereo : bool;
+        srgb : bool;
+        colors : colors;
+        depth : depth option;
+        stencil : stencil option;
+        version : int * int; }
+    val default : spec
+  end
+
+  type kind = [ `Gl of Gl.spec | `Other ]
 end
 
-module Drop : sig
+(** Application  *)
+module App : sig
 
-  type file
-  (** The type for file drops. *)
+  type mode = [ `Windowed | `Fullscreen ]
 
-  module File : sig
-    type t = file
+  type launch_context = [ `Browser | `Gui | `Terminal ]
+  val pp_launch_context : Format.formatter -> launch_context -> unit
 
-    val create : unit -> ('a -> t) * (t -> 'a option)
-  end
+  type backend = [ `Tsdl | `Jsoo | `Other of string ]
+  val pp_backend : Format.formatter -> backend -> unit
+
+  type backend_scheme = [ `Sync | `Async ]
+  val pp_backend_scheme : Format.formatter -> backend_scheme -> unit
+
+  val default_backend_logger : [`Error | `Warning ] -> string -> unit
+  val set_backend_logger : ([`Error | `Warning ] -> string -> unit) -> unit
+  val backend_log : [`Error | `Warning ] -> string -> unit
+
+  type cpu_count = [ `Known of int | `Unknown ]
+  val pp_cpu_count : Format.formatter -> cpu_count -> unit
 end
 
 (*---------------------------------------------------------------------------

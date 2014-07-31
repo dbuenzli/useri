@@ -19,7 +19,7 @@ let ( >>= ) x f = match x with
 | `Ok v -> f v
 
 let err_not_tsdl_file = "not a useri.tsdl file"
-let log_err msg = Useri_backend_base.App.backend_log `Error msg
+let log_err msg = Useri_base.App.backend_log `Error msg
 
 (* Mouse *)
 
@@ -88,21 +88,21 @@ end
 (* Keyboard *)
 
 module Key = struct
-  type id = Useri_backend_base.Key.id
-  let uchar = Useri_backend_base.Key.uchar
-  let pp_id = Useri_backend_base.Key.pp_id
+  type id = Useri_base.Key.id
+  let uchar = Useri_base.Key.uchar
+  let pp_id = Useri_base.Key.pp_id
 
-  let any_down = Useri_backend_base.Key.any_down
-  let any_up = Useri_backend_base.Key.any_up
-  let any_holds = Useri_backend_base.Key.any_holds
-  let down = Useri_backend_base.Key.down
-  let up = Useri_backend_base.Key.up
-  let holds = Useri_backend_base.Key.holds
+  let any_down = Useri_base.Key.any_down
+  let any_up = Useri_base.Key.any_up
+  let any_holds = Useri_base.Key.any_holds
+  let down = Useri_base.Key.down
+  let up = Useri_base.Key.up
+  let holds = Useri_base.Key.holds
 
-  let alt = Useri_backend_base.Key.alt
-  let ctrl = Useri_backend_base.Key.ctrl
-  let meta = Useri_backend_base.Key.meta
-  let shift = Useri_backend_base.Key.shift
+  let alt = Useri_base.Key.alt
+  let ctrl = Useri_base.Key.ctrl
+  let meta = Useri_base.Key.meta
+  let shift = Useri_base.Key.shift
 
   module Int = struct
     type t = int
@@ -157,19 +157,19 @@ module Key = struct
   let sdl_down e =
     let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
     let step = Step.create () in
-    Useri_backend_base.Key.handle_down ~step id;
+    Useri_base.Key.handle_down ~step id;
     Step.execute step;
     ()
 
   let sdl_up e =
     let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
     let step = Step.create () in
-    Useri_backend_base.Key.handle_up ~step id;
+    Useri_base.Key.handle_up ~step id;
     Step.execute step;
     ()
 
-  let init = Useri_backend_base.Key.init
-  let release = Useri_backend_base.Key.release
+  let init = Useri_base.Key.init
+  let release = Useri_base.Key.release
 end
 
 (* Text input *)
@@ -397,9 +397,9 @@ module Time = struct
 end
 
 module Human = struct
-  let noticed = Useri_backend_base.Human.noticed
-  let interrupted = Useri_backend_base.Human.interrupted
-  let left = Useri_backend_base.Human.left
+  let noticed = Useri_base.Human.noticed
+  let interrupted = Useri_base.Human.interrupted
+  let left = Useri_base.Human.left
 
   let rec feel_action feel set_feel ~step ~now _ =
     let new_feel, delay = match S.value feel with
@@ -420,10 +420,10 @@ module Human = struct
     Time.Line.add_deadline Time.line deadline (feel_action feel set_feel);
     feel
 
-  let touch_target_size = Useri_backend_base.Human.touch_target_size
-  let touch_target_size_min = Useri_backend_base.Human.touch_target_size_min
-  let touch_target_pad = Useri_backend_base.Human.touch_target_pad
-  let average_finger_width = Useri_backend_base.Human.average_finger_width
+  let touch_target_size = Useri_base.Human.touch_target_size
+  let touch_target_size_min = Useri_base.Human.touch_target_size_min
+  let touch_target_pad = Useri_base.Human.touch_target_pad
+  let average_finger_width = Useri_base.Human.average_finger_width
 end
 
 (* Application *)
@@ -452,9 +452,9 @@ let drawable_size () = match !app with
 
 module Surface = struct
 
-  module Gl = Useri_backend_base.Surface.Gl
+  module Gl = Useri_base.Surface.Gl
 
-  type kind = Useri_backend_base.Surface.kind
+  type kind = Useri_base.Surface.kind
 
   let anchor () = failwith "TODO"
 
@@ -633,7 +633,7 @@ module App = struct
 
   (* Mode *)
 
-  type mode = Useri_backend_base.App.mode
+  type mode = Useri_base.App.mode
   let mode_switch ?(init = `Windowed) e =
     let switch_mode = function
     | `Windowed -> `Fullscreen
@@ -695,7 +695,7 @@ module App = struct
     Text.release step;
     Drop.release step;
     Step.execute step;
-    Useri_backend_base.App.(set_backend_logger default_backend_logger);
+    Useri_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
     match !app with
     | None -> ()
@@ -772,8 +772,8 @@ module App = struct
 
   (* Launch context *)
 
-  type launch_context = Useri_backend_base.App.launch_context
-  let pp_launch_context = Useri_backend_base.App.pp_launch_context
+  type launch_context = Useri_base.App.launch_context
+  let pp_launch_context = Useri_base.App.pp_launch_context
 
   let launch_context =
     let getenv var = try Some (Sys.getenv var) with Not_found -> None in
@@ -796,20 +796,20 @@ module App = struct
   (* Platform and backend *)
   let platform = Sdl.get_platform ()
 
-  type backend = Useri_backend_base.App.backend
+  type backend = Useri_base.App.backend
   let backend = `Tsdl
-  let pp_backend = Useri_backend_base.App.pp_backend
-  let set_backend_logger = Useri_backend_base.App.set_backend_logger
+  let pp_backend = Useri_base.App.pp_backend
+  let set_backend_logger = Useri_base.App.set_backend_logger
 
-  type backend_scheme = Useri_backend_base.App.backend_scheme
+  type backend_scheme = Useri_base.App.backend_scheme
   let backend_scheme = `Sync
-  let pp_backend_scheme = Useri_backend_base.App.pp_backend_scheme
+  let pp_backend_scheme = Useri_base.App.pp_backend_scheme
 
   (* CPU count *)
 
-  type cpu_count = Useri_backend_base.App.cpu_count
+  type cpu_count = Useri_base.App.cpu_count
   let cpu_count = `Known (Sdl.get_cpu_count ())
-  let pp_cpu_count = Useri_backend_base.App.pp_cpu_count
+  let pp_cpu_count = Useri_base.App.pp_cpu_count
 end
 
 

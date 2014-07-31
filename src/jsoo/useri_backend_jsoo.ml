@@ -13,8 +13,8 @@ let execname =
   try Filename.chop_extension base with
   | Invalid_argument _ (* this API is pathetic *) -> base
 
-let log_warn msg = Useri_backend_base.App.backend_log `Warning msg
-let log_err msg = Useri_backend_base.App.backend_log `Error msg
+let log_warn msg = Useri_base.App.backend_log `Warning msg
+let log_err msg = Useri_base.App.backend_log `Error msg
 let warn_time () = log_warn "performance.now () missing, using Date.now ()"
 let warn_drag () = log_warn "Drag.file event not supported"
 let warn_but () = log_warn "unexpected e.which"
@@ -98,21 +98,21 @@ module Mouse = struct
 end
 
 module Key = struct
-  type id = Useri_backend_base.Key.id
-  let uchar = Useri_backend_base.Key.uchar
-  let pp_id = Useri_backend_base.Key.pp_id
+  type id = Useri_base.Key.id
+  let uchar = Useri_base.Key.uchar
+  let pp_id = Useri_base.Key.pp_id
 
-  let any_down = Useri_backend_base.Key.any_down
-  let any_up = Useri_backend_base.Key.any_up
-  let any_holds = Useri_backend_base.Key.any_holds
-  let down = Useri_backend_base.Key.down
-  let up = Useri_backend_base.Key.up
-  let holds = Useri_backend_base.Key.holds
+  let any_down = Useri_base.Key.any_down
+  let any_up = Useri_base.Key.any_up
+  let any_holds = Useri_base.Key.any_holds
+  let down = Useri_base.Key.down
+  let up = Useri_base.Key.up
+  let holds = Useri_base.Key.holds
 
-  let alt = Useri_backend_base.Key.alt
-  let ctrl = Useri_backend_base.Key.ctrl
-  let meta = Useri_backend_base.Key.meta
-  let shift = Useri_backend_base.Key.shift
+  let alt = Useri_base.Key.alt
+  let ctrl = Useri_base.Key.ctrl
+  let meta = Useri_base.Key.meta
+  let shift = Useri_base.Key.shift
 
   (* For browser keyboard handling see http://unixpapa.com/js/key.html *)
 
@@ -160,7 +160,7 @@ module Key = struct
     if Iset.mem kc !downs then false else
     let id = id_of_keycode kc in
     let step = Step.create () in
-    Useri_backend_base.Key.handle_down ~step id;
+    Useri_base.Key.handle_down ~step id;
     Step.execute step;
     downs := Iset.add kc !downs;
     false
@@ -169,7 +169,7 @@ module Key = struct
     let kc = e ## keyCode in
     let id = id_of_keycode kc in
     let step = Step.create () in
-    Useri_backend_base.Key.handle_up ~step id;
+    Useri_base.Key.handle_up ~step id;
     Step.execute step;
     downs := Iset.remove kc !downs;
     false
@@ -181,9 +181,9 @@ module Key = struct
     set_event_target (Some t);
     ()
 
-  let init = Useri_backend_base.Key.init
+  let init = Useri_base.Key.init
   let release ~step =
-    Useri_backend_base.Key.release ~step;
+    Useri_base.Key.release ~step;
     set_event_target None;
     ()
 end
@@ -336,7 +336,7 @@ module Time = struct
 
   (* Time span *)
 
-  type span = Useri_backend_base.Time.span
+  type span = Useri_base.Time.span
 
   (* Passing time *)
 
@@ -371,15 +371,15 @@ module Time = struct
 
   (* Pretty printing time *)
 
-  let pp_s = Useri_backend_base.Time.pp_s
-  let pp_ms = Useri_backend_base.Time.pp_ms
-  let pp_mus = Useri_backend_base.Time.pp_mus
+  let pp_s = Useri_base.Time.pp_s
+  let pp_ms = Useri_base.Time.pp_ms
+  let pp_mus = Useri_base.Time.pp_mus
 end
 
 module Human = struct
-  let noticed = Useri_backend_base.Human.noticed
-  let interrupted = Useri_backend_base.Human.interrupted
-  let left = Useri_backend_base.Human.left
+  let noticed = Useri_base.Human.noticed
+  let interrupted = Useri_base.Human.interrupted
+  let left = Useri_base.Human.left
 
   let rec feel_action feel set_feel () =
     let new_feel, delay = match S.value feel with
@@ -401,16 +401,16 @@ module Human = struct
     ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
     feel
 
-  let touch_target_size = Useri_backend_base.Human.touch_target_size
-  let touch_target_size_min = Useri_backend_base.Human.touch_target_size_min
-  let touch_target_pad = Useri_backend_base.Human.touch_target_pad
-  let average_finger_width = Useri_backend_base.Human.average_finger_width
+  let touch_target_size = Useri_base.Human.touch_target_size
+  let touch_target_size_min = Useri_base.Human.touch_target_size_min
+  let touch_target_pad = Useri_base.Human.touch_target_pad
+  let average_finger_width = Useri_base.Human.average_finger_width
 end
 
 module Surface = struct
 
-  module Gl = Useri_backend_base.Surface.Gl
-  type kind = Useri_backend_base.Surface.kind
+  module Gl = Useri_base.Surface.Gl
+  type kind = Useri_base.Surface.kind
 
   let inj, proj = Useri_base.Surface.Anchor.create ()
   let anchor_of_canvas = inj
@@ -535,7 +535,7 @@ module App = struct
     try parse (List.assoc key args) with
     | _ -> default
 
-  type mode = Useri_backend_base.App.mode
+  type mode = Useri_base.App.mode
   let mode_switch ?(init = `Windowed) e =
     let switch_mode = function
     | `Windowed -> `Fullscreen
@@ -593,40 +593,39 @@ module App = struct
     send_stop ~step ();
     Key.release ~step;
     Step.execute step;
-    Useri_backend_base.App.(set_backend_logger default_backend_logger);
+    Useri_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
     Ev.release ();
     ()
 
   (* Launch context *)
 
-  type launch_context = Useri_backend_base.App.launch_context
+  type launch_context = Useri_base.App.launch_context
   let launch_context = `Browser
-  let pp_launch_context = Useri_backend_base.App.pp_launch_context
+  let pp_launch_context = Useri_base.App.pp_launch_context
 
   (* Platform and backend *)
 
   let platform = Js.to_string (Dom_html.window ## navigator ## platform)
 
-  type backend = Useri_backend_base.App.backend
+  type backend = Useri_base.App.backend
   let backend = `Jsoo
-  let pp_backend = Useri_backend_base.App.pp_backend
-  let set_backend_logger = Useri_backend_base.App.set_backend_logger
+  let pp_backend = Useri_base.App.pp_backend
+  let set_backend_logger = Useri_base.App.set_backend_logger
 
-  type backend_scheme = Useri_backend_base.App.backend_scheme
+  type backend_scheme = Useri_base.App.backend_scheme
   let backend_scheme = `Async
-  let pp_backend_scheme = Useri_backend_base.App.pp_backend_scheme
+  let pp_backend_scheme = Useri_base.App.pp_backend_scheme
 
   (* CPU count *)
 
-  type cpu_count = Useri_backend_base.App.cpu_count
+  type cpu_count = Useri_base.App.cpu_count
   let cpu_count =
     let n = Dom_html.window ## navigator in
     match Js.Optdef.to_option ((Js.Unsafe.coerce n) ## hardwareConcurrency)
     with None -> `Unknown | Some c -> `Known c
 
-  let pp_cpu_count = Useri_backend_base.App.pp_cpu_count
-
+  let pp_cpu_count = Useri_base.App.pp_cpu_count
 end
 
 (*---------------------------------------------------------------------------
