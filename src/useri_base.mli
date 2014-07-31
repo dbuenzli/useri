@@ -4,16 +4,30 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-type anchor
-(** The type for surface anchors. *)
+(** Backend support. *)
 
-(**/**)
-module Anchor : sig
-  type t = anchor
-  val create : unit -> ('a -> t) * (t -> 'a option)
-  val none : t
+module Surface : sig
+  type anchor
+  (** The type for surface anchors. *)
+
+  module Anchor : sig
+    type t = anchor
+    val create : unit -> ('a -> t) * (t -> 'a option)
+    val none : t
+  end
 end
-(**/**)
+
+module Drop : sig
+
+  type file
+  (** The type for file drops. *)
+
+  module File : sig
+    type t = file
+
+    val create : unit -> ('a -> t) * (t -> 'a option)
+  end
+end
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

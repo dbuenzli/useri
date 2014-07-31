@@ -18,6 +18,7 @@ let ( >>= ) x f = match x with
 | `Error _ as e -> e
 | `Ok v -> f v
 
+let err_not_tsdl_file = "not a useri.tsdl file"
 let log_err msg = Useri_backend_base.App.backend_log `Error msg
 
 (* Mouse *)
@@ -236,20 +237,32 @@ end
 (* File drag and drop *)
 
 module Drop = struct
-  type file_ready_error
+
+  type file = Useri_base.Drop.file
+
+  module File = struct
+    type t = file
+    let inj, proj = Useri_base.Drop.File.create ()
+
+    let to_string f = match proj f with
+    | None -> invalid_arg err_not_tsdl_file
+    | Some f -> f
+
+    let path f = to_string f
+    let prepare f k = k f (`Ok ())
+  end
+
   let file, send_file = E.create ()
-  let file_ready, send_file_ready = E.create ()
   let sdl_file e =
-    let f = Sdl.Event.drop_file_file e in
+    let f = File.inj (Sdl.Event.drop_file_file e) in
     Sdl.Event.drop_file_free e;
     let step = React.Step.create () in
     send_file ~step f;
-    send_file_ready ~step (`Ok f);
     React.Step.execute step;
     ()
 
-  let sdl_init step =
-    Sdl.set_event_state Sdl.Event.drop_file Sdl.enable
+  let init step = Sdl.set_event_state Sdl.Event.drop_file Sdl.enable
+  let release step = ()
 end
 
 (* Time *)
@@ -680,6 +693,7 @@ module App = struct
     Mouse.release step;
     Key.release step;
     Text.release step;
+    Drop.release step;
     Step.execute step;
     Useri_backend_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
@@ -709,7 +723,7 @@ module App = struct
     Mouse.init step;
     Key.init step;
     Text.init step;
-    Drop.sdl_init step;
+    Drop.init step;
     React.Step.execute step;
     let step = React.Step.create () in
     Surface.send_raw_refresh ~step (Time.tick_now ());

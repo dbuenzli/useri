@@ -232,35 +232,49 @@ module Text : sig
       {b Warning.} [setter] should not depend on {!clipboard}. *)
 end
 
-(** User drag and drop. *)
+(** User drag and drop.
+
+    For the [`Jsoo] backend consult the
+    {{!Useri_jsoo.Drop.limits}limitations}. *)
 module Drop : sig
 
-  (** {1 Files}
+  (** {1 Files} *)
 
-      To accomodate different backends, a file drop interaction occurs
-      through two different, but potentially simultaneous event
-      occurences. First {!file} occurs with a filename. Second,
-      whenever the corresponding file is ready to be read from,
-      {!file_ready} occurs with the filename (or maybe an error).
-      Don't forget to provide some kind of feedback if the user feels
-      {!Human.interrupted} between the two occurences. *)
+  type file = Useri_base.Drop.file
+  (** The type for dropped files. *)
 
-  type file_ready_error
-  (** The type for {!file_ready} event errors. This remains abstract for now
-      the results of the [`Jsoo] backend being unclear. *)
+  (** Dropped files *)
+  module File : sig
 
-  val file : string event
-  (** [file] occurs whenever a file is dropped on the application. *)
+    (** {1 File} *)
 
-  val file_ready :
-    [ `Ok of string
-    | `Error of string * file_ready_error ] event
-  (** [file_ready] occurs with:
-      {ul
-      {- [`Ok n] if a previous or simultaneous {!file} event occured
-         with name [n] and the file is now available for reading.}
-      {- [`Error (n, e)] if a previous or simultaneous {!file} event occured
-         with name [n] and the file is not available because of [e]}} *)
+    type t = file
+    (** The type for dropped files. *)
+
+    val path : file -> string
+    (** [path f] is [f]'s file system path. *)
+
+    val prepare : file ->
+      (file -> [`Ok of unit | `Error of string] -> unit) -> unit
+    (** [prepare f k] prepares files [f] for reading, calling [k f r] whenever
+        [f] is ready to be read from (e.g. with {!Pervasives.open_in}).
+
+        This is mainly used to hide the upload of the file in
+        [js_of_ocaml]'s {{!Sys_js}pseudo file system} (e.g. on the
+        [`Tsdl] backend it will immediately call [k]). If you need more
+        control over the upload process you should access the JavaScript file
+        object directly with {!Useri_jsoo.Drop.File.to_js}. *)
+
+end
+
+  val file : file event
+  (** [file] occurs whenever a file is dropped on the application.
+
+      An occurence corresponds either to a file or to a directory.
+      Multiple files or directories can be dropped together and each
+      of those will result in one occurence on {!file} (which means
+      that you cannot detect that a set of files where dropped
+      together). *)
 end
 
 (** Time.
@@ -419,7 +433,7 @@ module Surface : sig
   type kind = [ `Gl of Gl.spec | `Other ]
   (** The type for surface kinds. *)
 
-  val anchor : unit -> Useri_base.anchor
+  val anchor : unit -> Useri_base.Surface.anchor
   (** [anchor ()] is the application's surface anchor. This
       can be used for example with {!Useri_jsoo.canvas_of_anchor}. *)
 
@@ -543,7 +557,7 @@ module App : sig
     ?size:size2 ->
     ?name:string ->
     ?surface:Surface.kind ->
-    ?anchor:Useri_base.anchor ->
+    ?anchor:Useri_base.Surface.anchor ->
     ?mode:mode signal ->
     unit -> [ `Ok of unit | `Error of string ]
   (** [init pos size name gl_conf ()] is an app.

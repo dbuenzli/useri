@@ -4,6 +4,7 @@
 * Add locale lookup
 * Add open_uri
 * Minimal examples.
+* Rename anchor_of_canvas to of_js
 * Multi-surfaces ? An approach would be to keep the events as
   they are but have a notion of active surface.
 * Tsdl, add anchor

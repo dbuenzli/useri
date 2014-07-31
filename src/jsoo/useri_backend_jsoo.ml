@@ -19,6 +19,7 @@ let warn_time () = log_warn "performance.now () missing, using Date.now ()"
 let warn_drag () = log_warn "Drag.file event not supported"
 let warn_but () = log_warn "unexpected e.which"
 let err_not_jsoo_anchor = "not a useri.jsoo anchor"
+let err_not_jsoo_file = "not a useri.jsoo file"
 let err_no_gl = "`Gl unsupported for WebGL use `Other"
 let err_init = "Useri not initialized"
 
@@ -264,33 +265,47 @@ module Text = struct
     fun e -> invalid_arg "Unsupported in this backend"
 end
 
-module Drop : sig
-  include module type of Useri.Drop
-  val init : unit -> unit
-end = struct
+module Drop = struct
 
-  type file_ready_error = unit
-  let file, send_file = E.create ()
-  let file_ready, send_file_ready = E.create ()
+  type file = Useri_base.Drop.file
 
-  let read_file f =
-    let r = jsnew File.fileReader () in
-    let name = Js.to_string (f ## name) in
-    let onload _ =
-      let content =
-        match Js.Opt.to_option (File.CoerceTo.string (r ## result)) with
-        | None -> assert false
-        | Some str -> Js.to_string str
+  module File = struct
+    (* Using http://www.w3.org/TR/FileAPI/ *)
+
+    type t = file
+    let inj, proj = Useri_base.Drop.File.create ()
+
+    let to_js f : File.file Js.t = match proj f with
+    | None -> invalid_arg err_not_jsoo_file
+    | Some f -> f
+
+    let path f = Js.to_string ((to_js f) ## name)
+    let prepare f k =
+      let f_js = to_js f in
+      let r = jsnew File.fileReader () in
+      let onload _ =
+        let name = Js.to_string (f_js ## name) in
+        let content =
+          match Js.Opt.to_option (File.CoerceTo.string (r ## result)) with
+          | None -> assert false
+          | Some str -> Js.to_string str
+        in
+        Sys_js.register_file ~name ~content;
+        k f (`Ok ());
+        Js._false
       in
-      Sys_js.register_file ~name ~content;
-      send_file_ready (`Ok name);
-      Js._false
-    in
-    let onerror _ = send_file_ready (`Error (name, ())); Js._false in
-    r ## onload <- Dom.handler onload;
-    r ## onerror <- Dom.handler onerror;
-    r ## readAsBinaryString (f);
-    ()
+      let onerror _ =
+        let err = string_of_int (r ## error ## code) in
+        k f (`Error err); Js._false
+      in
+      r ## onload <- Dom.handler onload;
+      r ## onerror <- Dom.handler onerror;
+      r ## readAsBinaryString (f_js);
+      ()
+  end
+
+  let file, send_file = E.create ()
+
 
   let drop _ e =
     Dom.preventDefault e;
@@ -298,7 +313,7 @@ end = struct
     for i = 0 to files ## length - 1 do
       match Js.Opt.to_option (files ## item(i)) with
       | None -> assert false
-      | Some file -> send_file (Js.to_string (file ## name)); read_file file
+      | Some file -> send_file (File.inj file);
     done;
     false
 
@@ -397,7 +412,7 @@ module Surface = struct
   module Gl = Useri_backend_base.Surface.Gl
   type kind = Useri_backend_base.Surface.kind
 
-  let inj, proj = Useri_base.Anchor.create ()
+  let inj, proj = Useri_base.Surface.Anchor.create ()
   let anchor_of_canvas = inj
   let canvas_of_anchor a = match proj a with
   | None -> invalid_arg err_not_jsoo_anchor

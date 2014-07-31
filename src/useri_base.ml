@@ -4,18 +4,32 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-module Anchor = struct
-  type t = exn   (* universal type, see http://mlton.org/UniversalType *)
+module Univ : sig (* universal type, see http://mlton.org/UniversalType *)
+  type t
+  val create : unit -> ('a -> t) * (t -> 'a option)
+end = struct
+  type t = exn
   let create (type s) () =
     let module M = struct exception E of s option end in
     (fun x -> M.E (Some x)), (function M.E x -> x | _ -> None)
-
-  let none = fst (create ()) None
 end
 
-type anchor = Anchor.t
+module Surface = struct
+  module Anchor = struct
+    type t = Univ.t
+    let create = Univ.create
+    let none = fst (Univ.create ()) None
+  end
+  type anchor = Anchor.t
+end
 
-
+module Drop = struct
+  module File = struct
+    type t = Univ.t
+    let create = Univ.create
+  end
+  type file = File.t
+end
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.

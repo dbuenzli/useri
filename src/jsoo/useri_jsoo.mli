@@ -4,7 +4,7 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** js_of_ocaml specifics *)
+(** [js_of_ocaml] backend specific functions. *)
 
 (** User keyboard.
 
@@ -62,13 +62,32 @@ module Key : sig
 *)
 end
 
+(** User drag and drop. *)
+module Drop : sig
+
+  module File : sig
+    (** {1 JavaScript file object} *)
+
+    val to_js : Useri_base.Drop.file -> File.file Js.t
+    (** [to_js f] returns the underlying JavaScript file object. *)
+  end
+
+  (** {1:limits Limitations}
+
+      The current browser {{:http://www.w3.org/TR/FileAPI/}File API} doesn't
+      allow to detect if a file drop is a directory or not. Trying to
+      {!Useri.Drop.File.prepare} a directory will result in an error. *)
+end
 
 module Surface : sig
 
   (** {1:anchor Anchors} *)
 
-  val anchor_of_canvas : Dom_html.canvasElement Js.t -> Useri_base.anchor
-  val canvas_of_anchor : Useri_base.anchor -> Dom_html.canvasElement Js.t
+  val anchor_of_canvas : Dom_html.canvasElement Js.t ->
+    Useri_base.Surface.anchor
+
+  val canvas_of_anchor : Useri_base.Surface.anchor ->
+    Dom_html.canvasElement Js.t
 end
 
 (*---------------------------------------------------------------------------

@@ -82,28 +82,23 @@ let test_text set_clipboard  =
 
 let test_drop () =
   let mname = "Drop" in
-  let pp_fready ppf = function
-  | `Ok n -> pp ppf "`Ok %S" n
-  | `Error (n, e) -> pp ppf "`Error (%S, _)" n
+  let pp_file ppf f = pp ppf "%s" (Drop.File.path f) in
+  let read file state =
+    let name = Drop.File.path file in
+    match state with
+    | `Error e -> log "%s: file prepare error (%s)" name e
+    | `Ok () ->
+        try
+          if Sys.is_directory name then log "%s: directory" name else
+          let ic = open_in name in
+          let len = in_channel_length ic in
+          let s = String.create len in
+          really_input ic s 0 len; close_in ic;
+          log "%s: contents: %S" name s
+        with Sys_error e -> log "%s: %s" name e
   in
-  let read file =
-    try
-      let ic = open_in file in
-      let len = in_channel_length ic in
-      let s = String.create len in
-      really_input ic s 0 len; close_in ic; `Ok s
-    with Sys_error e -> `Error e
-  in
-  let log_read file = match file with
-  | `Error (file, _) -> log "file drop error for %s" file
-  | `Ok file ->
-      match read file with
-      | `Ok s -> log "%s file drop contents: %S" file s
-      | `Error e -> log "%s: %s" file e
-  in
-  trace_e pp_str mname "file" Drop.file;
-  trace_e pp_fready mname "file_ready" Drop.file_ready;
-  App.sink_event (E.map log_read Drop.file_ready);
+  trace_e pp_file mname "file" Drop.file;
+  App.sink_event (E.map (fun f -> Drop.File.prepare f read) Drop.file);
   ()
 
 let test_time () =
