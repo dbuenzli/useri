@@ -600,6 +600,9 @@ module Drop = struct
 end
 
 module Human = struct
+
+  (* System latency feelings *)
+
   let noticed = Useri_base.Human.noticed
   let interrupted = Useri_base.Human.interrupted
   let left = Useri_base.Human.left
@@ -610,7 +613,7 @@ module Human = struct
     | `Interrupted -> `Left, 0.
     | `Left -> assert false
     in
-    (set_feel ~step new_feel : unit);
+    set_feel ~step new_feel;
     if delay = 0. then () else
     let deadline = Time.tick_add now (Time.tick_of_secs delay) in
     Time.Line.add_deadline Time.line deadline (feel_action feel set_feel)
@@ -622,6 +625,8 @@ module Human = struct
     let deadline = Time.tick_add now (Time.tick_of_secs interrupted) in
     Time.Line.add_deadline Time.line deadline (feel_action feel set_feel);
     feel
+
+  (* Touch target and finger size *)
 
   let touch_target_size = Useri_base.Human.touch_target_size
   let touch_target_size_min = Useri_base.Human.touch_target_size_min
