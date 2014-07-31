@@ -21,6 +21,335 @@ let ( >>= ) x f = match x with
 let err_not_tsdl_file = "not a useri.tsdl file"
 let log_err msg = Useri_base.App.backend_log `Error msg
 
+(* Time *)
+
+module Time = struct
+  type span = float
+
+  let pfreqi = Sdl.get_performance_frequency ()
+  let pfreq = Int64.to_float pfreqi
+  let tick_now () = Sdl.get_performance_counter ()
+  let tick_add t0 t1 = Int64.add t0 t1
+  let tick_of_secs d = Int64.of_float (d *. pfreq)
+  let tick_diff_secs t1 t0 = Int64.(to_float (sub t1 t0)) /. pfreq
+  let period_of_hz hz =
+    if hz = 0 then Int64.max_int else Int64.div pfreqi (Int64.of_int hz)
+
+  let tick_start = tick_now ()
+  let elapsed () = tick_diff_secs (tick_now ()) tick_start
+
+  let tick_next now period =
+    let part = Int64.(rem now period) in
+    Int64.(add (sub now part) period)
+
+  type counter = int64
+  let counter () = tick_now ()
+  let value start =
+    let dt = Int64.sub (tick_now ()) start in
+    Int64.(to_float dt) /. pfreq
+
+  module Line : sig
+    type t
+    type action = step:React.step -> now:int64 -> int64 -> unit
+
+    val add_deadline : t -> int64 -> action -> unit
+    (** [add_deadline l t action] adds an deadline at absolute tick [t]. *)
+
+    val execute : t -> int64 -> int64
+    (** [execute l now] executes all deadlines smaller or equal to
+        absolute tick [now] and returns the next deadline. *)
+
+    val deadline : t -> int64
+
+    val create : ?size:int -> unit -> t
+  end = struct
+
+    (* Deadlines are sorted on the timeline in a imperative heap. *)
+
+    type action = step:React.step -> now:int64 -> int64 -> unit
+    type deadline =                              (* deadline on the timeline. *)
+      { time : int64;                            (* absolute deadline time. *)
+        mutable action : action }                (* action. *)
+
+    type t =
+      { mutable heap : deadline array;
+        mutable max : int; }
+
+    let init_size = 256
+    let farthest = { time = Int64.max_int;
+                     action = (fun ~step ~now _ -> assert false) }
+    let create ?(size = init_size) () =
+      { heap = Array.make size farthest; max = -1; }
+
+    let grow h =
+      let len = h.max + 1 in
+      let heap' = Array.make (2 * len) farthest in
+      Array.blit h.heap 0 heap' 0 len; h.heap <- heap'
+
+    let shrink_threshold = 26215
+    let shrink h =                                   (* assert (h.max < 0). *)
+      if Array.length h.heap < shrink_threshold then () else
+      h.heap <- Array.make init_size farthest
+
+    let compare heap i i' = Int64.compare heap.(i).time heap.(i').time
+    let swap heap i i' =
+      let v = heap.(i) in heap.(i) <- heap.(i'); heap.(i') <- v
+
+    let rec up heap i =
+      if i = 0 then () else
+      let p = (i - 1) / 2 in                                (* parent index. *)
+      if compare heap i p < 0 then (swap heap i p; up heap p)
+
+    let rec down heap max i =
+      let start = 2 * i in
+      let l = start + 1 in                              (* left child index. *)
+      let r = start + 2 in                             (* right child index. *)
+      if l > max then () (* no child, stop *) else (* find smallest child k. *)
+      let k = if r > max then l else (if compare heap l r < 0 then l else r) in
+      if compare heap i k > 0 then (swap heap i k; down heap max k)
+
+    let add_deadline h time action =
+      let max = h.max + 1 in
+      if max = Array.length h.heap then grow h;
+      h.heap.(max) <- {time; action} ; h.max <- max; up h.heap max
+
+    let pop h =                                   (* assert not (h.max < 0). *)
+      let last = h.heap.(h.max) in
+      h.heap.(h.max) <- farthest;
+      h.max <- h.max - 1;
+      if h.max < 0 then () else (h.heap.(0) <- last; down h.heap h.max 0)
+
+    let execute h now =
+      let rec loop step now =
+        if h.max < 0 then (shrink h; Int64.max_int) else
+        let time = h.heap.(0).time in
+        if time > now then time else
+        let action = h.heap.(0).action in
+        (action ~step ~now time; pop h; loop step now)
+      in
+      if h.max < 0 then Int64.max_int else
+      let step = React.Step.create () in
+      let deadline = loop step now in
+      React.Step.execute step;
+      deadline
+
+    let deadline h =
+      if h.max < 0 then Int64.max_int else
+      h.heap.(0).time
+  end
+
+  let line = Line.create ()
+
+  let tick span =
+    let e, send_e = E.create () in
+    let action ~step ~now time = send_e ~step (tick_diff_secs time now) in
+    let deadline = tick_add (tick_now ()) (tick_of_secs span) in
+    Line.add_deadline line deadline action;
+    e
+
+  let pp_s ppf s = Format.fprintf ppf "%gs" s
+  let pp_ms ppf s = Format.fprintf ppf "%gms" (s *. 1e3)
+  let pp_mus ppf s = Format.fprintf ppf "%gμs" (s *. 1e6)
+end
+
+(* Surface *)
+
+let app = ref None
+let pos, set_pos = S.create P2.o
+let size, set_size = S.create Size2.unit
+
+let window_pos () = match !app with
+| None -> P2.o
+| Some (win, _) ->
+    let x, y = Sdl.get_window_position win in
+    P2.v (float x) (float y)
+
+let window_size () = match !app with
+| None -> Size2.unit
+| Some (win, _) ->
+    let w, h = Sdl.get_window_size win in
+    Size2.v (float w) (float h)
+
+let drawable_size () = match !app with
+| None -> Size2.unit
+| Some (win, _) ->
+    let w, h = Sdl.gl_get_drawable_size win in
+    Size2.v (float w) (float h)
+
+module Surface = struct
+
+  module Gl = Useri_base.Surface.Gl
+
+  type kind = Useri_base.Surface.kind
+
+  let anchor () = failwith "TODO"
+
+  (* Properties *)
+
+  let size, set_size = S.create Size2.unit
+  let update () = match !app with
+  | Some (win, _) -> Sdl.gl_swap_window win
+  | _ -> ()
+
+  (* Refreshing *)
+
+  let scheduled_refresh = ref false
+  let refresh, send_raw_refresh = E.create ()
+  let send_raw_refresh =
+    let last_refresh = ref (Time.tick_now ()) in
+    fun ?step now ->
+      send_raw_refresh ?step (Time.tick_diff_secs now !last_refresh);
+      last_refresh := now
+
+  let refresh_hz, set_refresh_hz = S.create 60
+  let set_refresh_hz hz = set_refresh_hz hz
+
+  let untils = ref []
+  let until_empty () = !untils = []
+  let until_add u = untils := u :: !untils
+  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
+
+  let anims = ref []
+  let anims_empty () = !anims = []
+  let anim_add a = anims := a :: !anims
+  let anims_update ~step now =
+    anims := List.find_all (fun a -> a ~step now) !anims
+
+  let rec refresh_action ~step ~now _ =
+    anims_update ~step now;
+    send_raw_refresh ~step now;
+    if until_empty () && anims_empty ()
+    then (scheduled_refresh := false)
+    else
+    let deadline = Time.tick_add now (Time.period_of_hz (S.value refresh_hz)) in
+    Time.Line.add_deadline Time.line deadline refresh_action;
+    scheduled_refresh := true
+
+  let start_refreshes now = (* delay in case we are in an update step *)
+    Time.Line.add_deadline Time.line now refresh_action;
+    scheduled_refresh := true
+
+  let refresher = ref E.never
+
+  let generate_request _ =
+    if !scheduled_refresh then () else
+    start_refreshes (Time.tick_now ())
+
+  let request_refresh () = generate_request ()
+
+  let set_refresher e =
+    E.stop (!refresher);
+    refresher := E.map generate_request e
+
+  let steady_refresh ~until =
+    let uref = ref E.never in
+    let u = E.map (fun _ -> until_rem !uref) until in
+    uref := u;
+    if not !scheduled_refresh
+    then (until_add u; start_refreshes (Time.tick_now ()))
+    else (until_add u)
+
+  let animate ~span =
+    let s, set_s = S.create 0. in
+    let now = Time.tick_now () in
+    let stop = Time.tick_add now (Time.tick_of_secs span) in
+    let a ~step now =
+      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
+      (set_s ~step (1. -. ((Time.tick_diff_secs stop now) /. span)); true)
+    in
+    if not !scheduled_refresh
+    then (anim_add a; start_refreshes (Time.tick_now ()); s)
+    else (anim_add a; s)
+
+  let sdl_setup = function
+  | `Other -> `Ok ()
+  | `Gl c ->
+      let bool b = if b then 1 else 0 in
+      let ms_buffers, ms_samples = match c.Gl.multisample with
+      | None -> 0, 0
+      | Some ms_samples -> 1, ms_samples
+      in
+      let rsize, gsize, bsize, asize = match c.Gl.colors with
+      | `RGBA_8888 -> 8, 8, 8, 8
+      | `RGB_565 -> 5, 6, 5, 0
+      in
+      let dsize = match c.Gl.depth with
+      | None -> 0
+      | Some `D_16 -> 18
+      | Some `D_24 -> 24
+      in
+      let ssize = match c.Gl.stencil with
+      | None -> 0
+      | Some `S_8 -> 8
+      in
+      let set a v = Sdl.gl_set_attribute a v in
+      let accelerated () = match c.Gl.accelerated with
+      | None -> `Ok ()
+      | Some a -> set Sdl.Gl.accelerated_visual (bool a)
+      in
+      set Sdl.Gl.share_with_current_context (bool true)
+      >>= fun () -> accelerated ()
+      >>= fun () -> set Sdl.Gl.multisamplebuffers ms_buffers
+      >>= fun () -> set Sdl.Gl.multisamplesamples ms_samples
+      >>= fun () -> set Sdl.Gl.doublebuffer (bool c.Gl.doublebuffer)
+      >>= fun () -> set Sdl.Gl.stereo (bool c.Gl.stereo)
+      >>= fun () -> set Sdl.Gl.framebuffer_srgb_capable (bool c.Gl.srgb)
+      >>= fun () -> set Sdl.Gl.red_size rsize
+      >>= fun () -> set Sdl.Gl.green_size gsize
+      >>= fun () -> set Sdl.Gl.blue_size bsize
+      >>= fun () -> set Sdl.Gl.alpha_size asize
+      >>= fun () -> set Sdl.Gl.depth_size dsize
+      >>= fun () -> set Sdl.Gl.stencil_size ssize
+      >>= fun () -> set Sdl.Gl.context_profile_mask Sdl.Gl.context_profile_core
+      >>= fun () -> set Sdl.Gl.context_major_version (fst c.Gl.version)
+      >>= fun () -> set Sdl.Gl.context_minor_version (snd c.Gl.version)
+end
+
+module Window = struct
+  let create hidpi pos size name surf_spec mode =
+    let mode = match mode with
+    | `Windowed -> Sdl.Window.windowed
+    | `Fullscreen -> Sdl.Window.fullscreen_desktop
+    in
+    let x, y = match pos with
+    | None -> None, None
+    | Some pos -> Some (truncate (V2.x pos)), Some (truncate (V2.y pos))
+    in
+    let w, h = truncate (Size2.w size), truncate (Size2.h size) in
+    let atts = Sdl.Window.(opengl + resizable + hidden + mode) in
+    let atts = if hidpi then Sdl.Window.(atts + allow_highdpi) else atts in
+    Surface.sdl_setup surf_spec
+    >>= fun ()  -> Sdl.create_window ?x ?y ~w ~h name atts
+    >>= fun win -> Sdl.gl_create_context win
+    >>= fun ctx -> Sdl.gl_make_current win ctx
+    >>= fun ()  -> Sdl.gl_set_swap_interval 1
+    >>= fun ()  -> `Ok (win, ctx)
+
+  let destroy win ctx =
+    Sdl.gl_delete_context ctx;
+    Sdl.destroy_window win;
+    `Ok ()
+
+  let sdl_window e =
+    match Sdl.Event.(window_event_enum (get e window_event_id)) with
+    | `Exposed | `Resized ->
+        let step = Step.create () in
+        let surface_size = drawable_size () in
+        Surface.set_size ~step surface_size;
+        set_pos ~step (window_pos ());
+        set_size ~step (window_size ());
+        Step.execute step;
+        (* Avoid simultaneity so that the client can reshape *)
+        Surface.send_raw_refresh (Time.tick_now ())
+    | `Moved ->
+        let step = Step.create () in
+        set_pos ~step (window_pos ());
+        Step.execute step;
+    | _ -> ()
+end
+
+
+
 (* Mouse *)
 
 module Mouse = struct
@@ -265,137 +594,6 @@ module Drop = struct
   let release step = ()
 end
 
-(* Time *)
-
-module Time = struct
-  type span = float
-
-  let pfreqi = Sdl.get_performance_frequency ()
-  let pfreq = Int64.to_float pfreqi
-  let tick_now () = Sdl.get_performance_counter ()
-  let tick_add t0 t1 = Int64.add t0 t1
-  let tick_of_secs d = Int64.of_float (d *. pfreq)
-  let tick_diff_secs t1 t0 = Int64.(to_float (sub t1 t0)) /. pfreq
-  let period_of_hz hz =
-    if hz = 0 then Int64.max_int else Int64.div pfreqi (Int64.of_int hz)
-
-  let tick_start = tick_now ()
-  let elapsed () = tick_diff_secs (tick_now ()) tick_start
-
-  let tick_next now period =
-    let part = Int64.(rem now period) in
-    Int64.(add (sub now part) period)
-
-  type counter = int64
-  let counter () = tick_now ()
-  let value start =
-    let dt = Int64.sub (tick_now ()) start in
-    Int64.(to_float dt) /. pfreq
-
-  module Line : sig
-    type t
-    type action = step:React.step -> now:int64 -> int64 -> unit
-
-    val add_deadline : t -> int64 -> action -> unit
-    (** [add_deadline l t action] adds an deadline at absolute tick [t]. *)
-
-    val execute : t -> int64 -> int64
-    (** [execute l now] executes all deadlines smaller or equal to
-        absolute tick [now] and returns the next deadline. *)
-
-    val deadline : t -> int64
-
-    val create : ?size:int -> unit -> t
-  end = struct
-
-    (* Deadlines are sorted on the timeline in a imperative heap. *)
-
-    type action = step:React.step -> now:int64 -> int64 -> unit
-    type deadline =                              (* deadline on the timeline. *)
-      { time : int64;                            (* absolute deadline time. *)
-        mutable action : action }                (* action. *)
-
-    type t =
-      { mutable heap : deadline array;
-        mutable max : int; }
-
-    let init_size = 256
-    let farthest = { time = Int64.max_int;
-                     action = (fun ~step ~now _ -> assert false) }
-    let create ?(size = init_size) () =
-      { heap = Array.make size farthest; max = -1; }
-
-    let grow h =
-      let len = h.max + 1 in
-      let heap' = Array.make (2 * len) farthest in
-      Array.blit h.heap 0 heap' 0 len; h.heap <- heap'
-
-    let shrink_threshold = 26215
-    let shrink h =                                   (* assert (h.max < 0). *)
-      if Array.length h.heap < shrink_threshold then () else
-      h.heap <- Array.make init_size farthest
-
-    let compare heap i i' = Int64.compare heap.(i).time heap.(i').time
-    let swap heap i i' =
-      let v = heap.(i) in heap.(i) <- heap.(i'); heap.(i') <- v
-
-    let rec up heap i =
-      if i = 0 then () else
-      let p = (i - 1) / 2 in                                (* parent index. *)
-      if compare heap i p < 0 then (swap heap i p; up heap p)
-
-    let rec down heap max i =
-      let start = 2 * i in
-      let l = start + 1 in                              (* left child index. *)
-      let r = start + 2 in                             (* right child index. *)
-      if l > max then () (* no child, stop *) else (* find smallest child k. *)
-      let k = if r > max then l else (if compare heap l r < 0 then l else r) in
-      if compare heap i k > 0 then (swap heap i k; down heap max k)
-
-    let add_deadline h time action =
-      let max = h.max + 1 in
-      if max = Array.length h.heap then grow h;
-      h.heap.(max) <- {time; action} ; h.max <- max; up h.heap max
-
-    let pop h =                                   (* assert not (h.max < 0). *)
-      let last = h.heap.(h.max) in
-      h.heap.(h.max) <- farthest;
-      h.max <- h.max - 1;
-      if h.max < 0 then () else (h.heap.(0) <- last; down h.heap h.max 0)
-
-    let execute h now =
-      let rec loop step now =
-        if h.max < 0 then (shrink h; Int64.max_int) else
-        let time = h.heap.(0).time in
-        if time > now then time else
-        let action = h.heap.(0).action in
-        (action ~step ~now time; pop h; loop step now)
-      in
-      if h.max < 0 then Int64.max_int else
-      let step = React.Step.create () in
-      let deadline = loop step now in
-      React.Step.execute step;
-      deadline
-
-    let deadline h =
-      if h.max < 0 then Int64.max_int else
-      h.heap.(0).time
-  end
-
-  let line = Line.create ()
-
-  let tick span =
-    let e, send_e = E.create () in
-    let action ~step ~now time = send_e ~step (tick_diff_secs time now) in
-    let deadline = tick_add (tick_now ()) (tick_of_secs span) in
-    Line.add_deadline line deadline action;
-    e
-
-  let pp_s ppf s = Format.fprintf ppf "%gs" s
-  let pp_ms ppf s = Format.fprintf ppf "%gms" (s *. 1e3)
-  let pp_mus ppf s = Format.fprintf ppf "%gμs" (s *. 1e6)
-end
-
 module Human = struct
   let noticed = Useri_base.Human.noticed
   let interrupted = Useri_base.Human.interrupted
@@ -426,201 +624,6 @@ module Human = struct
   let average_finger_width = Useri_base.Human.average_finger_width
 end
 
-(* Application *)
-
-let app = ref None
-let pos, set_pos = S.create P2.o
-let size, set_size = S.create Size2.unit
-
-let window_pos () = match !app with
-| None -> P2.o
-| Some (win, _) ->
-    let x, y = Sdl.get_window_position win in
-    P2.v (float x) (float y)
-
-let window_size () = match !app with
-| None -> Size2.unit
-| Some (win, _) ->
-    let w, h = Sdl.get_window_size win in
-    Size2.v (float w) (float h)
-
-let drawable_size () = match !app with
-| None -> Size2.unit
-| Some (win, _) ->
-    let w, h = Sdl.gl_get_drawable_size win in
-    Size2.v (float w) (float h)
-
-module Surface = struct
-
-  module Gl = Useri_base.Surface.Gl
-
-  type kind = Useri_base.Surface.kind
-
-  let anchor () = failwith "TODO"
-
-  (* Properties *)
-
-  let size, set_size = S.create Size2.unit
-  let update () = match !app with
-  | Some (win, _) -> Sdl.gl_swap_window win
-  | _ -> ()
-
-  (* Refreshing *)
-
-  let scheduled_refresh = ref false
-  let refresh, send_raw_refresh = E.create ()
-  let send_raw_refresh =
-    let last_refresh = ref (Time.tick_now ()) in
-    fun ?step now ->
-      send_raw_refresh ?step (Time.tick_diff_secs now !last_refresh);
-      last_refresh := now
-
-  let refresh_hz, set_refresh_hz = S.create 60
-  let set_refresh_hz hz = set_refresh_hz hz
-
-  let untils = ref []
-  let until_empty () = !untils = []
-  let until_add u = untils := u :: !untils
-  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
-
-  let anims = ref []
-  let anims_empty () = !anims = []
-  let anim_add a = anims := a :: !anims
-  let anims_update ~step now =
-    anims := List.find_all (fun a -> a ~step now) !anims
-
-  let rec refresh_action ~step ~now _ =
-    anims_update ~step now;
-    send_raw_refresh ~step now;
-    if until_empty () && anims_empty ()
-    then (scheduled_refresh := false)
-    else
-    let deadline = Time.tick_add now (Time.period_of_hz (S.value refresh_hz)) in
-    Time.Line.add_deadline Time.line deadline refresh_action;
-    scheduled_refresh := true
-
-  let start_refreshes now = (* delay in case we are in an update step *)
-    Time.Line.add_deadline Time.line now refresh_action;
-    scheduled_refresh := true
-
-  let refresher = ref E.never
-
-  let generate_request _ =
-    if !scheduled_refresh then () else
-    start_refreshes (Time.tick_now ())
-
-  let request_refresh () = generate_request ()
-
-  let set_refresher e =
-    E.stop (!refresher);
-    refresher := E.map generate_request e
-
-  let steady_refresh ~until =
-    let uref = ref E.never in
-    let u = E.map (fun _ -> until_rem !uref) until in
-    uref := u;
-    if not !scheduled_refresh
-    then (until_add u; start_refreshes (Time.tick_now ()))
-    else (until_add u)
-
-  let animate ~span =
-    let s, set_s = S.create 0. in
-    let now = Time.tick_now () in
-    let stop = Time.tick_add now (Time.tick_of_secs span) in
-    let a ~step now =
-      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
-      (set_s ~step (1. -. ((Time.tick_diff_secs stop now) /. span)); true)
-    in
-    if not !scheduled_refresh
-    then (anim_add a; start_refreshes (Time.tick_now ()); s)
-    else (anim_add a; s)
-
-  let sdl_setup = function
-  | `Other -> `Ok ()
-  | `Gl c ->
-      let bool b = if b then 1 else 0 in
-      let ms_buffers, ms_samples = match c.Gl.multisample with
-      | None -> 0, 0
-      | Some ms_samples -> 1, ms_samples
-      in
-      let rsize, gsize, bsize, asize = match c.Gl.colors with
-      | `RGBA_8888 -> 8, 8, 8, 8
-      | `RGB_565 -> 5, 6, 5, 0
-      in
-      let dsize = match c.Gl.depth with
-      | None -> 0
-      | Some `D_16 -> 18
-      | Some `D_24 -> 24
-      in
-      let ssize = match c.Gl.stencil with
-      | None -> 0
-      | Some `S_8 -> 8
-      in
-      let set a v = Sdl.gl_set_attribute a v in
-      let accelerated () = match c.Gl.accelerated with
-      | None -> `Ok ()
-      | Some a -> set Sdl.Gl.accelerated_visual (bool a)
-      in
-      set Sdl.Gl.share_with_current_context (bool true)
-      >>= fun () -> accelerated ()
-      >>= fun () -> set Sdl.Gl.multisamplebuffers ms_buffers
-      >>= fun () -> set Sdl.Gl.multisamplesamples ms_samples
-      >>= fun () -> set Sdl.Gl.doublebuffer (bool c.Gl.doublebuffer)
-      >>= fun () -> set Sdl.Gl.stereo (bool c.Gl.stereo)
-      >>= fun () -> set Sdl.Gl.framebuffer_srgb_capable (bool c.Gl.srgb)
-      >>= fun () -> set Sdl.Gl.red_size rsize
-      >>= fun () -> set Sdl.Gl.green_size gsize
-      >>= fun () -> set Sdl.Gl.blue_size bsize
-      >>= fun () -> set Sdl.Gl.alpha_size asize
-      >>= fun () -> set Sdl.Gl.depth_size dsize
-      >>= fun () -> set Sdl.Gl.stencil_size ssize
-      >>= fun () -> set Sdl.Gl.context_profile_mask Sdl.Gl.context_profile_core
-      >>= fun () -> set Sdl.Gl.context_major_version (fst c.Gl.version)
-      >>= fun () -> set Sdl.Gl.context_minor_version (snd c.Gl.version)
-end
-
-module Window = struct
-  let create hidpi pos size name surf_spec mode =
-    let mode = match mode with
-    | `Windowed -> Sdl.Window.windowed
-    | `Fullscreen -> Sdl.Window.fullscreen_desktop
-    in
-    let x, y = match pos with
-    | None -> None, None
-    | Some pos -> Some (truncate (V2.x pos)), Some (truncate (V2.y pos))
-    in
-    let w, h = truncate (Size2.w size), truncate (Size2.h size) in
-    let atts = Sdl.Window.(opengl + resizable + hidden + mode) in
-    let atts = if hidpi then Sdl.Window.(atts + allow_highdpi) else atts in
-    Surface.sdl_setup surf_spec
-    >>= fun ()  -> Sdl.create_window ?x ?y ~w ~h name atts
-    >>= fun win -> Sdl.gl_create_context win
-    >>= fun ctx -> Sdl.gl_make_current win ctx
-    >>= fun ()  -> Sdl.gl_set_swap_interval 1
-    >>= fun ()  -> `Ok (win, ctx)
-
-  let destroy win ctx =
-    Sdl.gl_delete_context ctx;
-    Sdl.destroy_window win;
-    `Ok ()
-
-  let sdl_window e =
-    match Sdl.Event.(window_event_enum (get e window_event_id)) with
-    | `Exposed | `Resized ->
-        let step = Step.create () in
-        let surface_size = drawable_size () in
-        Surface.set_size ~step surface_size;
-        set_pos ~step (window_pos ());
-        set_size ~step (window_size ());
-        Step.execute step;
-        (* Avoid simultaneity so that the client can reshape *)
-        Surface.send_raw_refresh (Time.tick_now ())
-    | `Moved ->
-        let step = Step.create () in
-        set_pos ~step (window_pos ());
-        Step.execute step;
-    | _ -> ()
-end
 
 module App = struct
 

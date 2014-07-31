@@ -23,6 +23,8 @@ let err_not_jsoo_file = "not a useri.jsoo file"
 let err_no_gl = "`Gl unsupported for WebGL use `Other"
 let err_init = "Useri not initialized"
 
+(* js_of_ocaml events *)
+
 module Ev = struct
   let ids = ref []
   let release () = List.iter Dom.removeEventListener !ids
@@ -33,7 +35,171 @@ module Ev = struct
     ()
 end
 
+(* Time *)
+
+module Time = struct
+
+  (* Time span *)
+
+  type span = Useri_base.Time.span
+
+  (* Passing time *)
+
+  let tick_now =
+    let date_now () = (jsnew Js.date_now () ## getTime ()) /. 1000. in
+    let perf_now () =
+      (Js.Unsafe.coerce Dom_html.window) ## performance ## now () /. 1000.
+    in
+    let perf = (Js.Unsafe.coerce Dom_html.window) ## performance in
+    match Js.Optdef.to_option perf with
+    | None -> warn_time (); date_now
+    | Some p ->
+        match (Js.Unsafe.coerce p) ## now with
+        | None -> warn_time (); date_now
+        | Some n -> perf_now
+
+  let start = tick_now ()
+  let elapsed () = tick_now () -. start
+  let tick span =
+    let e, send_e = E.create () in
+    let start = tick_now () in
+    let action () = send_e (tick_now () -. start) in
+    let ms = span *. 1000. in
+    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
+    e
+
+  (* Counting time *)
+
+  type counter = span
+  let counter () = tick_now ()
+  let value c = tick_now () -. c
+
+  (* Pretty printing time *)
+
+  let pp_s = Useri_base.Time.pp_s
+  let pp_ms = Useri_base.Time.pp_ms
+  let pp_mus = Useri_base.Time.pp_mus
+end
+
+(* Surface *)
+
 let canvas : Dom_html.canvasElement Js.t option ref = ref None
+
+module Surface = struct
+
+  module Gl = Useri_base.Surface.Gl
+  type kind = Useri_base.Surface.kind
+
+  let inj, proj = Useri_base.Surface.Anchor.create ()
+  let anchor_of_canvas = inj
+  let canvas_of_anchor a = match proj a with
+  | None -> invalid_arg err_not_jsoo_anchor
+  | Some c -> c
+
+  let size : size2 signal = fst (S.create Size2.zero)
+  let update : unit -> unit = fun () -> ()
+
+  let anchor () = match !canvas with
+  | None -> invalid_arg err_init
+  | Some c -> anchor_of_canvas c
+
+  let init ~hidpi ?pos ~size ~surface ?anchor ~mode () =
+    let c = match anchor with
+    | Some a -> canvas_of_anchor a
+    | None ->
+        let c = Dom_html.(createCanvas document) in
+        Dom.appendChild (Dom_html.document ## body) c;
+        c
+    in
+    match surface with
+    | `Other ->
+        let topx = str "%dpx" in
+        let w = Float.int_of_round (Size2.w size) in
+        let h = Float.int_of_round (Size2.h size) in
+        c ## style ## width <- Js.string (topx w);
+        c ## style ## height <- Js.string (topx h);
+        c ## width <- w;
+        c ## height <- h;
+        Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
+        Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
+        Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
+        c ## setAttribute (Js.string "tabindex", Js.string "1");
+(*        (Js.Unsafe.coerce c) ## focus (); *)
+        Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
+        canvas := Some c
+    | `Gl _ -> invalid_arg err_no_gl
+
+  (* Refresh *)
+
+  let scheduled_refresh = ref false
+  let refresh, send_raw_refresh = E.create ()
+  let send_raw_refresh =
+    let last_refresh = ref (Time.tick_now ()) in
+    fun ?step now ->
+      send_raw_refresh ?step (now -. !last_refresh);
+      last_refresh := now
+
+  let refresh_hz, set_refresh_hz = S.create 60
+  let set_refresh_hz hz = set_refresh_hz hz
+
+  let untils = ref []
+  let untils_empty () = !untils = []
+  let until_add u = untils := u :: !untils
+  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
+
+  let anims = ref []
+  let anims_empty () = !anims = []
+  let anim_add a = anims := a :: !anims
+  let anims_update ~step now =
+    anims := List.find_all (fun a -> a ~step now) !anims
+
+  let rec refresh_action () =
+    let step = Step.create () in
+    let now = Time.tick_now () in
+    anims_update ~step now;
+    send_raw_refresh ~step now;
+    Step.execute step;
+    if untils_empty () && anims_empty ()
+    then (scheduled_refresh := false)
+    else start_refreshes ()
+
+  and start_refreshes () =
+    let callback = Js.wrap_callback refresh_action in
+    Dom_html._requestAnimationFrame callback;
+    scheduled_refresh := true
+
+  let generate_request _ =
+    if !scheduled_refresh then () else
+    start_refreshes ()
+
+  let request_refresh () = generate_request ()
+  let refresher = ref E.never
+  let set_refresher e =
+    E.stop (!refresher);
+    refresher := E.map generate_request e
+
+  let steady_refresh ~until =
+    let uref = ref E.never in
+    let u = E.map (fun _ -> until_rem !uref) until in
+    uref := u;
+    if not !scheduled_refresh
+    then (until_add u; start_refreshes ())
+    else (until_add u)
+
+  let animate ~span =
+    let s, set_s = S.create 0. in
+    let now = Time.tick_now () in
+    let stop = now +. span in
+    let a ~step now =
+      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
+      (set_s ~step (1. -. ((stop -. now) /. span)); true)
+    in
+    if not !scheduled_refresh
+    then (anim_add a; start_refreshes (); s)
+    else (anim_add a; s)
+end
+
+(* Mouse *)
 
 module Mouse = struct
   let pos, set_pos = S.create P2.o
@@ -73,7 +239,7 @@ module Mouse = struct
     in
     set ~step true; send_down ~step epos;
     React.Step.execute step;
-    (Js.Unsafe.coerce c) ## focus (); (* since we prevent default *)
+    ignore ((Js.Unsafe.coerce c) ## focus ()); (* since we prevent default *)
     false
 
   let up_cb c e =
@@ -96,6 +262,8 @@ module Mouse = struct
     React.Step.execute step;
     false
 end
+
+(* Key *)
 
 module Key = struct
   type id = Useri_base.Key.id
@@ -188,6 +356,8 @@ module Key = struct
     ()
 end
 
+(* Text *)
+
 module Text = struct
 
   let (input : string event), send_input = E.create ()
@@ -230,7 +400,7 @@ module Text = struct
         | None -> log_err "canvas has no parent"
         | Some p ->
             Dom.insertBefore p i (Js.Opt.return canvas);
-            (Js.Unsafe.coerce i) ## focus ();
+            ignore ((Js.Unsafe.coerce i) ## focus ());
             hidden_input := Some (i :> Dom_html.inputElement Js.t);
             ()
 
@@ -242,7 +412,7 @@ module Text = struct
         hidden_input := None;
         match Js.Opt.to_option ((i :> Dom.node Js.t) ## parentNode) with
         | None -> ()
-        | Some p -> ignore (p ## removeChild (i))
+        | Some p -> ignore (p ## removeChild ((i :> Dom.node Js.t)))
 
 
   let input_enabled = ref (S.const ())
@@ -264,6 +434,8 @@ module Text = struct
   let set_clipboard_setter : string event -> unit =
     fun e -> invalid_arg "Unsupported in this backend"
 end
+
+(* Drop *)
 
 module Drop = struct
 
@@ -332,49 +504,7 @@ module Drop = struct
 
 end
 
-module Time = struct
-
-  (* Time span *)
-
-  type span = Useri_base.Time.span
-
-  (* Passing time *)
-
-  let tick_now =
-    let date_now () = (jsnew Js.date_now () ## getTime ()) /. 1000. in
-    let perf_now () =
-      (Js.Unsafe.coerce Dom_html.window) ## performance ## now () /. 1000.
-    in
-    let perf = (Js.Unsafe.coerce Dom_html.window) ## performance in
-    match Js.Optdef.to_option perf with
-    | None -> warn_time (); date_now
-    | Some p ->
-        match (Js.Unsafe.coerce p) ## now with
-        | None -> warn_time (); date_now
-        | Some n -> perf_now
-
-  let start = tick_now ()
-  let elapsed () = tick_now () -. start
-  let tick span =
-    let e, send_e = E.create () in
-    let start = tick_now () in
-    let action () = send_e (tick_now () -. start) in
-    let ms = span *. 1000. in
-    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
-    e
-
-  (* Counting time *)
-
-  type counter = span
-  let counter () = tick_now ()
-  let value c = tick_now () -. c
-
-  (* Pretty printing time *)
-
-  let pp_s = Useri_base.Time.pp_s
-  let pp_ms = Useri_base.Time.pp_ms
-  let pp_mus = Useri_base.Time.pp_mus
-end
+(* Human *)
 
 module Human = struct
   let noticed = Useri_base.Human.noticed
@@ -407,119 +537,7 @@ module Human = struct
   let average_finger_width = Useri_base.Human.average_finger_width
 end
 
-module Surface = struct
-
-  module Gl = Useri_base.Surface.Gl
-  type kind = Useri_base.Surface.kind
-
-  let inj, proj = Useri_base.Surface.Anchor.create ()
-  let anchor_of_canvas = inj
-  let canvas_of_anchor a = match proj a with
-  | None -> invalid_arg err_not_jsoo_anchor
-  | Some c -> c
-
-  let size : size2 signal = fst (S.create Size2.zero)
-  let update : unit -> unit = fun () -> ()
-
-  let anchor () = match !canvas with
-  | None -> invalid_arg err_init
-  | Some c -> anchor_of_canvas c
-
-  let init ~hidpi ?pos ~size ~surface ?anchor ~mode () =
-    let c = match anchor with
-    | Some a -> canvas_of_anchor a
-    | None ->
-        let c = Dom_html.(createCanvas document) in
-        Dom.appendChild (Dom_html.document ## body) c;
-        c
-    in
-    match surface with
-    | `Other ->
-        let topx = str "%dpx" in
-        let w = Float.int_of_round (Size2.w size) in
-        let h = Float.int_of_round (Size2.h size) in
-        c ## style ## width <- Js.string (topx w);
-        c ## style ## height <- Js.string (topx h);
-        c ## width <- w;
-        c ## height <- h;
-        Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
-        Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
-        Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
-        c ## setAttribute ("tabindex", "1");
-(*        (Js.Unsafe.coerce c) ## focus (); *)
-        Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
-        canvas := Some c
-    | `Gl _ -> invalid_arg err_no_gl
-
-  (* Refresh *)
-
-  let scheduled_refresh = ref false
-  let refresh, send_raw_refresh = E.create ()
-  let send_raw_refresh =
-    let last_refresh = ref (Time.tick_now ()) in
-    fun ?step now ->
-      send_raw_refresh ?step (now -. !last_refresh);
-      last_refresh := now
-
-  let refresh_hz, set_refresh_hz = S.create 60
-  let set_refresh_hz hz = set_refresh_hz hz
-
-  let untils = ref []
-  let untils_empty () = !untils = []
-  let until_add u = untils := u :: !untils
-  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
-
-  let anims = ref []
-  let anims_empty () = !anims = []
-  let anim_add a = anims := a :: !anims
-  let anims_update ~step now =
-    anims := List.find_all (fun a -> a ~step now) !anims
-
-  let rec refresh_action () =
-    let step = Step.create () in
-    let now = Time.tick_now () in
-    anims_update ~step now;
-    send_raw_refresh ~step now;
-    Step.execute step;
-    if untils_empty () && anims_empty ()
-    then (scheduled_refresh := false)
-    else start_refreshes ()
-
-  and start_refreshes () =
-    let callback = Js.wrap_callback refresh_action in
-    Dom_html._requestAnimationFrame callback;
-    scheduled_refresh := true
-
-  let generate_request _ =
-    if !scheduled_refresh then () else
-    start_refreshes ()
-
-  let request_refresh () = generate_request ()
-  let refresher = ref E.never
-  let set_refresher e =
-    E.stop (!refresher);
-    refresher := E.map generate_request e
-
-  let steady_refresh ~until =
-    let uref = ref E.never in
-    let u = E.map (fun _ -> until_rem !uref) until in
-    uref := u;
-    if not !scheduled_refresh
-    then (until_add u; start_refreshes ())
-    else (until_add u)
-
-  let animate ~span =
-    let s, set_s = S.create 0. in
-    let now = Time.tick_now () in
-    let stop = now +. span in
-    let a ~step now =
-      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
-      (set_s ~step (1. -. ((stop -. now) /. span)); true)
-    in
-    if not !scheduled_refresh
-    then (anim_add a; start_refreshes (); s)
-    else (anim_add a; s)
-end
+(* App *)
 
 module App = struct
 

@@ -9,6 +9,45 @@
 open Gg
 open React
 
+(** Time. *)
+module Time : sig
+  type span = float
+  val pp_s : Format.formatter -> span -> unit
+  val pp_ms : Format.formatter -> span -> unit
+  val pp_mus : Format.formatter -> span -> unit
+end
+
+(** Surface. *)
+module Surface : sig
+
+  type anchor
+
+  module Anchor : sig
+    type t = anchor
+    val create : unit -> ('a -> t) * (t -> 'a option)
+    val none : t
+  end
+
+  module Gl : sig
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    type depth = [ `D_24 | `D_16 ]
+    type stencil = [ `S_8 ]
+    type spec =
+      { accelerated : bool option;
+        multisample : int option;
+        doublebuffer : bool;
+        stereo : bool;
+        srgb : bool;
+        colors : colors;
+        depth : depth option;
+        stencil : stencil option;
+        version : int * int; }
+    val default : spec
+  end
+
+  type kind = [ `Gl of Gl.spec | `Other ]
+end
+
 (** User keyboard. *)
 module Key : sig
 
@@ -67,14 +106,6 @@ module Drop : sig
   end
 end
 
-(** Time. *)
-module Time : sig
-  type span = float
-  val pp_s : Format.formatter -> span -> unit
-  val pp_ms : Format.formatter -> span -> unit
-  val pp_mus : Format.formatter -> span -> unit
-end
-
 (** Human factors. *)
 module Human : sig
   val noticed : Time.span
@@ -84,37 +115,6 @@ module Human : sig
   val touch_target_size_min : float
   val touch_target_pad : float
   val average_finger_width : float
-end
-
-(** Surface. *)
-module Surface : sig
-
-  type anchor
-
-  module Anchor : sig
-    type t = anchor
-    val create : unit -> ('a -> t) * (t -> 'a option)
-    val none : t
-  end
-
-  module Gl : sig
-    type colors = [ `RGBA_8888 | `RGB_565 ]
-    type depth = [ `D_24 | `D_16 ]
-    type stencil = [ `S_8 ]
-    type spec =
-      { accelerated : bool option;
-        multisample : int option;
-        doublebuffer : bool;
-        stereo : bool;
-        srgb : bool;
-        colors : colors;
-        depth : depth option;
-        stencil : stencil option;
-        version : int * int; }
-    val default : spec
-  end
-
-  type kind = [ `Gl of Gl.spec | `Other ]
 end
 
 (** Application  *)

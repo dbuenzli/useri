@@ -16,16 +16,191 @@
     {b Caveat.} Do not expect to be able to fully exploit the
     possibilities and flexibility of the platforms underlying the
     backends. This library is a {e simple} abstraction library and
-    thus remains limited. Depending on your needs it may fit quite
-    well otherwise it will hopfully provide you with a good and
-    well-principled prototyping abtraction.
+    thus remains limited.
 
     {e Release %%VERSION%% — %%MAINTAINER%% } *)
 
 open Gg
 open React
 
-(** {1 Input} *)
+(** {1 Useri} *)
+
+(** Monotonic time. *)
+module Time : sig
+
+  (** {1 Time span} *)
+
+  type span = float
+  (** The type for time spans, in seconds. *)
+
+  (** {1 Passing time} *)
+
+  val elapsed : unit -> span
+  (** [elapsed ()] is the number of seconds elapsed since the
+      beginning of the program. *)
+
+  val tick : span -> span event
+  (** [tick span] is an event that occurs once in [span] seconds with
+      the value [span - span'] where [span'] is the actual delay
+      performed by the system.
+
+      Do not use [tick] for timing animation. Use the values
+      described in {!Surface.refreshing}.
+
+      {b Note.} Since the system may introduce delays you cannot
+      assume that two different calls to {!tick} will necessarily
+      yield two non-simultaneous events. *)
+
+  (** {1 Counting time} *)
+
+  type counter
+  (** The type for time counters. *)
+
+  val counter : unit -> counter
+  (** [counter ()] is a counter counting time from call time on. *)
+
+  val value : counter -> span
+  (** [value c] is the current counter value in seconds. *)
+
+  (** {1 Pretty printing time} *)
+
+  val pp_s : Format.formatter -> span -> unit
+  (** [pp_s ppf s] prints [s] seconds in seconds. *)
+
+  val pp_ms : Format.formatter -> span -> unit
+  (** [pp_ms ppf s] prints [s] seconds in milliseconds. *)
+
+  val pp_mus : Format.formatter -> span -> unit
+  (** [pp_mus ppf s] prints [s] seconds in microseconds. *)
+end
+
+(** Rendering surface.
+
+    An application has a single rendering surface. *)
+module Surface : sig
+
+  (** {1:surfaces Surface kinds and anchors} *)
+
+  (** The type for OpenGL surface specification. *)
+  module Gl : sig
+
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    (** The type for color buffers specification. *)
+
+    type depth = [ `D_24 | `D_16 ]
+    (** The type for depth buffer specification. *)
+
+    type stencil = [ `S_8 ]
+    (** The type for stencil buffer specification. *)
+
+    type spec =
+      { accelerated : bool option;
+        multisample : int option;
+        doublebuffer : bool;
+        stereo : bool;
+        srgb : bool;
+        colors : colors;
+        depth : depth option;
+        stencil : stencil option;
+        version : int * int; }
+    (** The type for OpenGL surface specifications. The default values
+        mention are those of {!default}.
+        {ul
+        {- [accelerated], use [Some false] for software renderer, [Some true]
+            to require hardware renderer, [None] to allow either. Defaults to
+            [None]}
+        {- [multisample], use [Some count] for enabling a multisample buffer
+            with [count] samples. Defaults to [Some 8].}
+        {- [doublebuffer], use a double buffered surface. Defaults to [true].}
+        {- [stereo], use stereo buffers. Defaults to [false].}
+        {- [srgb], request an sRGB framebuffer. Defaults to [true].}
+        {- [colors], specify the color buffers. Defaults to [`RGBA_8888].}
+        {- [depth], specify the depth buffer. Defaults to [Some `D_24].}
+        {- [stencil], specify the stencil buffer. Defaults to [None].}
+        {- [version], specify the GL version.}} *)
+
+    val default : spec
+    (** [default] is the default OpenGL surface specification. See {!spec}. *)
+  end
+
+  type kind = [ `Gl of Gl.spec | `Other ]
+  (** The type for surface kinds. *)
+
+  val anchor : unit -> Useri_base.Surface.anchor
+  (** [anchor ()] is the application's surface anchor. This
+      can be used for example with {!Useri_jsoo.canvas_of_anchor}. *)
+
+  (** {1:surface Surface} *)
+
+  val size : size2 signal
+  (** [size] is the application's rendering surface size.
+      Differs from {!App.size} on high-dpi displays. *)
+
+  val update : unit -> unit
+  (** [update ()] updates the rendering surface. This has
+      to be called for your drawing commands to be taken into
+      account. *)
+
+  (** {1:refreshing Refreshing and animating surfaces}
+
+      The following events provide a set of event occurences and
+      signals for coordinating input, surface refresh and surface
+      animation while remaining energy efficient. See {!rendercoord}
+      for more information. *)
+
+  val refresh : float event
+  (** [refresh] occurs whenever the surface needs to be redrawn with
+      the number of seconds since its last occurence or, for the
+      first occurence, the number of seconds since the application
+      start.
+
+      The exact occurence frequency is unspecified but generally it
+      should not exceed the {e hinted} frequency of {!refresh_hz}
+      hertz.
+
+      More precisely the following occurences are guaranteed:
+      {ul
+      {- {e Simultaneously} with {!App.start}.}
+      {- Some time {e after} the {!size} signal changes value.}
+      {- Some time {e after} an occurence of the event set by
+         {!set_refresher}.}
+      {- As a side effect of invocations to {!request_refresh}
+         {!steady_refresh} or {!animate}.}} *)
+
+  val request_refresh : unit -> unit
+  (** [request_refresh ()] has the effect of making {!refresh}
+      occur some time later after it was called. This function call
+      is cheap and can be abused.
+
+      {b Warning.} This function may be removed from the API in
+      the future. *)
+
+  val set_refresher : 'a event -> unit
+  (** [set_refresher r] uses the occurence of [r] to ask for
+      {!refresh} occurences at a maximal hinted frequency of
+      {!refresh_hz} hertz. Generated [refresh] occurences will not be
+      simultaneous with [r]. *)
+
+  val steady_refresh : until:'a event -> unit
+  (** [steady_refresh until] makes {!refresh} occur at the hinted
+      frequency of {!refresh_hz} hertz until [until] occurs. It's
+      value is the same as and will be simultaneous to {!refresh}
+      occurences. *)
+
+  val animate : span:float -> float signal
+  (** [animate span] is a signal that increases from [0.] to [1.]
+      during [span] seconds with the side effect of making
+      [refresh] occur at a hinted frequency of {!refresh_hz} until
+      at least [span] is over. *)
+
+  val refresh_hz : int signal
+  (** [refresh_hz] is the {e hinted} frequency in hertz for {!refresh}
+      occurences initiated by calls to {!send_refresh} and
+      {!animate}. The initial value is [60]. *)
+
+  val set_refresh_hz : int -> unit
+  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
+end
 
 (** User mouse.
 
@@ -277,55 +452,6 @@ end
       together). *)
 end
 
-(** Time.
-
-    [Time] gives access to a simple monotonic clock. *)
-module Time : sig
-
-  (** {1 Time span} *)
-
-  type span = float
-  (** The type for time spans, in seconds. *)
-
-  (** {1 Passing time} *)
-
-  val elapsed : unit -> span
-  (** [elapsed ()] is the number of seconds elapsed since the
-      beginning of the program. *)
-
-  val tick : span -> span event
-  (** [tick span] is an event that occurs once in [span] seconds with
-      the value [span - span'] where [span'] is the actual delay
-      performed by the system.
-
-      {b Note.} Since the system may introduce delays you cannot
-      assume that two calls to {!tick} will necessarily yield two
-      non-simultaneous events. TODO should we do it only if they
-      have the exact same absolute schedule time ? *)
-
-  (** {1 Counting time} *)
-
-  type counter
-  (** The type for time counters. *)
-
-  val counter : unit -> counter
-  (** [counter ()] is a counter counting time from call time on. *)
-
-  val value : counter -> span
-  (** [value c] is the current counter value in seconds. *)
-
-  (** {1 Pretty printing time} *)
-
-  val pp_s : Format.formatter -> span -> unit
-  (** [pp_s ppf s] prints [s] seconds in seconds. *)
-
-  val pp_ms : Format.formatter -> span -> unit
-  (** [pp_ms ppf s] prints [s] seconds in milliseconds. *)
-
-  val pp_mus : Format.formatter -> span -> unit
-  (** [pp_mus ppf s] prints [s] seconds in microseconds. *)
-end
-
 (** Human factors. *)
 module Human : sig
 
@@ -379,134 +505,6 @@ module Human : sig
   val average_finger_width : float
   (** [average_finger_width] is [11.]mm, the average {e adult} finger width. *)
 
-end
-
-(** Rendering surface.
-
-    An application has a single rendering surface. *)
-module Surface : sig
-
-  (** {1:surfaces Surface kinds and anchors} *)
-
-  (** The type for OpenGL surface specification. *)
-  module Gl : sig
-
-    type colors = [ `RGBA_8888 | `RGB_565 ]
-    (** The type for color buffers specification. *)
-
-    type depth = [ `D_24 | `D_16 ]
-    (** The type for depth buffer specification. *)
-
-    type stencil = [ `S_8 ]
-    (** The type for stencil buffer specification. *)
-
-    type spec =
-      { accelerated : bool option;
-        multisample : int option;
-        doublebuffer : bool;
-        stereo : bool;
-        srgb : bool;
-        colors : colors;
-        depth : depth option;
-        stencil : stencil option;
-        version : int * int; }
-    (** The type for OpenGL surface specifications. The default values
-        mention are those of {!default}.
-        {ul
-        {- [accelerated], use [Some false] for software renderer, [Some true]
-            to require hardware renderer, [None] to allow either. Defaults to
-            [None]}
-        {- [multisample], use [Some count] for enabling a multisample buffer
-            with [count] samples. Defaults to [Some 8].}
-        {- [doublebuffer], use a double buffered surface. Defaults to [true].}
-        {- [stereo], use stereo buffers. Defaults to [false].}
-        {- [srgb], request an sRGB framebuffer. Defaults to [true].}
-        {- [colors], specify the color buffers. Defaults to [`RGBA_8888].}
-        {- [depth], specify the depth buffer. Defaults to [Some `D_24].}
-        {- [stencil], specify the stencil buffer. Defaults to [None].}
-        {- [version], specify the GL version.}} *)
-
-    val default : spec
-    (** [default] is the default OpenGL surface specification. See {!spec}. *)
-  end
-
-  type kind = [ `Gl of Gl.spec | `Other ]
-  (** The type for surface kinds. *)
-
-  val anchor : unit -> Useri_base.Surface.anchor
-  (** [anchor ()] is the application's surface anchor. This
-      can be used for example with {!Useri_jsoo.canvas_of_anchor}. *)
-
-  (** {1:surface Surface} *)
-
-  val size : size2 signal
-  (** [size] is the application's rendering surface size.
-      Differs from {!App.size} on high-dpi displays. *)
-
-  val update : unit -> unit
-  (** [update ()] updates the rendering surface. This has
-      to be called for your drawing commands to be taken into
-      account. *)
-
-  (** {1 Refreshing and animating surfaces}
-
-      The following events provide a set of event occurences and
-      signals for coordinating input, surface refresh and surface
-      animation while remaining energy efficient. See {!rendercoord}
-      for more information. *)
-
-  val refresh : float event
-  (** [refresh] occurs whenever the surface needs to be redrawn with
-      the number of seconds since its last occurence or, for the
-      first occurence, the number of seconds since the application
-      start.
-
-      The exact occurence frequency is unspecified but generally it
-      should not exceed the {e hinted} frequency of {!refresh_hz}
-      hertz.
-
-      More precisely the following occurences are guaranteed:
-      {ul
-      {- {e Simultaneously} with {!App.start}.}
-      {- Some time {e after} the {!size} signal changes value.}
-      {- Some time {e after} an occurence of the event set by
-         {!set_refresher}.}
-      {- As a side effect of invocations to {!request_refresh}
-         {!steady_refresh} or {!animate}.}} *)
-
-  val request_refresh : unit -> unit
-  (** [request_refresh ()] has the effect of making {!refresh}
-      occur some time later after it was called. This function call
-      is cheap and can be abused.
-
-      {b Warning.} This function may be removed from the API in
-      the future. *)
-
-  val set_refresher : 'a event -> unit
-  (** [set_refresher r] uses the occurence of [r] to ask for
-      {!refresh} occurences at a maximal hinted frequency of
-      {!refresh_hz} hertz. Generated [refresh] occurences will not be
-      simultaneous with [r]. *)
-
-  val steady_refresh : until:'a event -> unit
-  (** [steady_refresh until] makes {!refresh} occur at the hinted
-      frequency of {!refresh_hz} hertz until [until] occurs. It's
-      value is the same as and will be simultaneous to {!refresh}
-      occurences. *)
-
-  val animate : span:float -> float signal
-  (** [animate span] is a signal that increases from [0.] to [1.]
-      during [span] seconds with the side effect of making
-      [refresh] occur at a hinted frequency of {!refresh_hz} until
-      at least [span] is over. *)
-
-  val refresh_hz : int signal
-  (** [refresh_hz] is the {e hinted} frequency in hertz for {!refresh}
-      occurences initiated by calls to {!send_refresh} and
-      {!animate}. The initial value is [60]. *)
-
-  val set_refresh_hz : int -> unit
-  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
 end
 
 (** Application  *)

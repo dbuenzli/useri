@@ -21,6 +21,57 @@ end = struct
     (fun x -> M.E (Some x)), (function M.E x -> x | _ -> None)
 end
 
+(* Time *)
+
+module Time = struct
+  type span = float
+  let pp_s ppf s = pp ppf "%gs" s
+  let pp_ms ppf s = pp ppf "%gms" (s *. 1e3)
+  let pp_mus ppf s = pp ppf "%gμs" (s *. 1e6)
+end
+
+(* Surface *)
+
+module Surface = struct
+
+  module Anchor = struct
+    type t = Univ.t
+    let create = Univ.create
+    let none = fst (Univ.create ()) None
+  end
+
+  type anchor = Anchor.t
+
+  module Gl = struct
+    type colors = [ `RGBA_8888 | `RGB_565 ]
+    type depth = [ `D_24 | `D_16 ]
+    type stencil = [ `S_8 ]
+    type spec =
+      { accelerated : bool option;
+        multisample : int option;
+        doublebuffer : bool;
+        stereo : bool;
+        srgb : bool;
+        colors : colors;
+        depth : depth option;
+        stencil : stencil option;
+        version : int * int; }
+
+    let default =
+      { accelerated = None;
+        multisample = Some 8;
+        doublebuffer = true;
+        stereo = false;
+        srgb = true;
+        colors = `RGBA_8888;
+        depth = Some `D_24;
+        stencil = None;
+        version = (3,2); }
+  end
+
+  type kind = [ `Gl of Gl.spec | `Other ]
+end
+
 (* Keyboard *)
 
 module Key = struct
@@ -183,15 +234,6 @@ module Drop = struct
   type file = File.t
 end
 
-(* Time *)
-
-module Time = struct
-  type span = float
-  let pp_s ppf s = pp ppf "%gs" s
-  let pp_ms ppf s = pp ppf "%gms" (s *. 1e3)
-  let pp_mus ppf s = pp ppf "%gμs" (s *. 1e6)
-end
-
 (* Human *)
 
 module Human = struct
@@ -205,48 +247,6 @@ module Human = struct
   let touch_target_size_min = 7.
   let touch_target_pad = 2.
   let average_finger_width = 11.
-end
-
-(* Surface *)
-
-module Surface = struct
-
-  module Anchor = struct
-    type t = Univ.t
-    let create = Univ.create
-    let none = fst (Univ.create ()) None
-  end
-
-  type anchor = Anchor.t
-
-  module Gl = struct
-    type colors = [ `RGBA_8888 | `RGB_565 ]
-    type depth = [ `D_24 | `D_16 ]
-    type stencil = [ `S_8 ]
-    type spec =
-      { accelerated : bool option;
-        multisample : int option;
-        doublebuffer : bool;
-        stereo : bool;
-        srgb : bool;
-        colors : colors;
-        depth : depth option;
-        stencil : stencil option;
-        version : int * int; }
-
-    let default =
-      { accelerated = None;
-        multisample = Some 8;
-        doublebuffer = true;
-        stereo = false;
-        srgb = true;
-        colors = `RGBA_8888;
-        depth = Some `D_24;
-        stencil = None;
-        version = (3,2); }
-  end
-
-  type kind = [ `Gl of Gl.spec | `Other ]
 end
 
 (* Application *)
