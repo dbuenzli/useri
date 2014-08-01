@@ -16,7 +16,7 @@
     {b Caveat.} Do not expect to be able to fully exploit the
     possibilities and flexibility of the platforms underlying the
     backends. This library is a {e simple} abstraction library and
-    thus remains limited.
+    thus remains limited by design.
 
     {e Release %%VERSION%% — %%MAINTAINER%% } *)
 
@@ -76,13 +76,29 @@ end
 
 (** Rendering surface.
 
-    An application has a single rendering surface. *)
+    An application has a single rendering surface that
+    is specified by a {!t} value given to {!App.init}. *)
 module Surface : sig
 
-  (** {1:surfaces Surface kinds and anchors} *)
+  (** {1:mode Surface mode} *)
+
+  type mode = [ `Windowed | `Fullscreen ]
+  (** The type for surface modes. *)
+
+  val pp_mode : Format.formatter -> mode -> unit
+  (** [pp_mode ppf m] prints an unspecified representation of [m] on [ppf]. *)
+
+  val mode_switch : ?init:mode -> 'a event -> mode signal
+  (** [mode_switch init e] is a signal that has value [init]
+      (defaults to [`Windowed]) and switches mode on each occurence
+      of [e]. *)
+
+  (** {1:surfaces Surface specification} *)
 
   (** The type for OpenGL surface specification. *)
   module Gl : sig
+
+    (** {1 OpenGL surface} *)
 
     type colors = [ `RGBA_8888 | `RGB_565 ]
     (** The type for color buffers specification. *)
@@ -93,7 +109,7 @@ module Surface : sig
     type stencil = [ `S_8 ]
     (** The type for stencil buffer specification. *)
 
-    type spec =
+    type t =
       { accelerated : bool option;
         multisample : int option;
         doublebuffer : bool;
@@ -103,8 +119,9 @@ module Surface : sig
         depth : depth option;
         stencil : stencil option;
         version : int * int; }
-    (** The type for OpenGL surface specifications. The default values
-        mention are those of {!default}.
+    (** The type for OpenGL surface specifications.
+
+        The default values mentionned below are those of {!default}.
         {ul
         {- [accelerated], use [Some false] for software renderer, [Some true]
             to require hardware renderer, [None] to allow either. Defaults to
@@ -119,27 +136,71 @@ module Surface : sig
         {- [stencil], specify the stencil buffer. Defaults to [None].}
         {- [version], specify the GL version.}} *)
 
-    val default : spec
-    (** [default] is the default OpenGL surface specification. See {!spec}. *)
+    val default : t
+    (** [default] is the default OpenGL surface specification. See {!t}. *)
   end
 
-  type kind = [ `Gl of Gl.spec | `Other ]
+  type anchor = Useri_base.Surface.anchor
+
+  type kind = [ `Gl of Gl.t | `Other ]
   (** The type for surface kinds. *)
 
-  val anchor : unit -> Useri_base.Surface.anchor
-  (** [anchor ()] is the application's surface anchor. This
-      can be used for example with {!Useri_jsoo.canvas_of_anchor}. *)
+  type t
+  (** The type for surface specification. *)
 
-  (** {1:surface Surface} *)
+  val create : ?hidpi:bool -> ?pos:p2 -> ?size:size2 -> ?kind:kind ->
+    ?anchor:anchor -> ?mode:mode React.signal -> unit -> t
+  (** [create hidpi pos size kind anchor mode  ()] is a surface specification
+       with:
+      {ul
+      {- [hidpi], if [true] (default) tries to get a high-dpi surface.}
+      {- [pos], a {e hint} to set the top-left corner of the surface in
+         its display container (e.g. screen). The top-left corner of
+         the display container is (0,0).}
+      {- [size], the size of the surface in logical pixels.}
+      {- [kind] is the kind of surface.}
+      {- [anchor] is TODO}
+      {- [mode] is the the surface mode.}}
+
+      {b Warning.} Currently the [size] and [pos] arguments are specified
+      in logical pixels (CSS pixels in the [`Jsoo] backend). The actual
+      raster size of the surface is in the {!raster_size} signal. Note that
+      future versions of this library will switch to
+      physical dimensions (lack of backend support is the problem at
+      the moment).  *)
+
+  (** {1:surface Application Surface}
+
+      {b Warning.} These values and functions are defined
+      only after {!App.init} was called. *)
+
+  val pos : p2 signal
+  (** [pos] is the position of the top-left corner of the surface
+      in the surface's display container. *)
+
+  val raster_size : size2 signal
+  (** [raster_size] is the application's surface underlying raster
+      size. *)
 
   val size : size2 signal
-  (** [size] is the application's rendering surface size.
-      Differs from {!App.size} on high-dpi displays. *)
+  (** [size] is the application's surface logical size. *)
+
+  val mode : mode signal
+  (** [mode] is the application's surface mode. This signal is defined
+      by the [~mode] argument of the surface given to {!init} or the signal
+      specified by {!set_mode_switch}. *)
+
+  val set_mode_switch : mode signal -> unit
+  (** [set_mode_switch ms] sets [ms] as being the signal that defines the
+      surface's application mode. See {!mode}. *)
 
   val update : unit -> unit
   (** [update ()] updates the rendering surface. This has
       to be called for your drawing commands to be taken into
       account. *)
+
+  val anchor : unit -> Useri_base.Surface.anchor
+  (** [anchor ()] is the application's surface anchor. *)
 
   (** {1:refreshing Refreshing and animating surfaces}
 
@@ -147,6 +208,13 @@ module Surface : sig
       signals for coordinating input, surface refresh and surface
       animation while remaining energy efficient. See {!rendercoord}
       for more information. *)
+
+  val refresh_hz : int signal
+  (** [refresh_hz] is the maximal {e hinted} frequency in hertz for {!refresh}
+      occurences. The initial value is [60]. *)
+
+  val set_refresh_hz : int -> unit
+  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
 
   val refresh : float event
   (** [refresh] occurs whenever the surface needs to be redrawn with
@@ -192,14 +260,6 @@ module Surface : sig
       during [span] seconds with the side effect of making
       [refresh] occur at a hinted frequency of {!refresh_hz} until
       at least [span] is over. *)
-
-  val refresh_hz : int signal
-  (** [refresh_hz] is the {e hinted} frequency in hertz for {!refresh}
-      occurences initiated by calls to {!send_refresh} and
-      {!animate}. The initial value is [60]. *)
-
-  val set_refresh_hz : int -> unit
-  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
 end
 
 (** User mouse.
@@ -510,18 +570,7 @@ end
 (** Application  *)
 module App : sig
 
-  val prefs_path : org:string -> app:string ->
-    [`Ok of string | `Error of string ]
-  (** [TODO] this should used the app name automatically.
-      Unique to user and app. *)
-
-  (** {1 Properties} *)
-
-  val size : size2 signal
-  (** [size] is the application's size. *)
-
-  val pos : p2 signal
-  (** [pos] is the application's position. *)
+  (** {1:environment Environment} *)
 
   val env : string -> default:'a -> (string -> 'a) -> 'a
   (** [env var ~default parse] lookups [var] in the environment, parses
@@ -534,35 +583,30 @@ module App : sig
       {- [`Jsoo] lookups the query string of [window.location]
          for the first matching [var=value] pair.}} *)
 
-  (** {1 Mode} *)
+  val prefs_path : org:string -> app:string ->
+  [`Ok of string | `Error of string ]
+  (** [TODO] this should used the app name automatically.
+      Unique to user and app. *)
 
-  type mode = [ `Windowed | `Fullscreen ]
-  (** The type for application modes. *)
+  (** {1:userquit User requested quit} *)
 
-  val mode : mode signal
-  (** [mode] is the application's mode. This signal
-      is defined by the signal given to {!App.init}. *)
-
-  val mode_switch : ?init:mode -> 'a event -> mode signal
-  (** [mode_switch init e] has value [init] (defaults to `Windowed) and
-      switches mode on each occurence of [e]. *)
-
-  (** {1 Init, run and release} *)
-
-  val init :
-    ?hidpi:bool ->
-    ?pos:p2 ->
-    ?size:size2 ->
-    ?name:string ->
-    ?surface:Surface.kind ->
-    ?anchor:Useri_base.Surface.anchor ->
-    ?mode:mode signal ->
-    unit -> [ `Ok of unit | `Error of string ]
-  (** [init pos size name gl_conf ()] is an app.
+  val quit : unit event
+  (** [quit] occurs whenever the user requested to quit. The meaning
+      depends on the {{!backend}backend}:
       {ul
-      {- [hidpi] if [true] (default) tries to get a high-dpi surface.}
-      {- [mode], defines the application mode and the {!value:mode} signal,
-         defaults to [S.const `Windowed].}} *)
+      {- [`Tsdl], this is only a hint, e.g. the last window
+         was closed or a platform dependent way of quitting
+         applications was invoked}
+      {- [`Jsoo], the browser window is closing and it's your
+         last chance to peform something}}. *)
+
+  (** {1:lifecycle Init, run and release} *)
+
+  val init : ?name:string -> ?surface:Surface.t -> unit ->
+  [ `Ok of unit | `Error of string ]
+  (** [init name surface] initialises an application named [name] (default
+      derived from the executable name) with surface [surface] (defaults
+      to a default {!Surface.create}.) *)
 
   val run_step : unit -> Time.span
   (** [run_step ()] gather as much user input as possible and returns
@@ -591,18 +635,6 @@ module App : sig
 
   val stop : unit event
   (** [stop] occurs when {!release} starts. *)
-
-  (** {1 User requested quit} *)
-
-  val quit : unit event
-  (** [quit] occurs whenever the user requested to quit. The meaning
-      depends on the {{!backend}backend}:
-      {ul
-      {- [`Tsdl], this is only a hint, e.g. the last window
-         was closed or a platform dependent way of quitting
-         applications was invoked}
-      {- [`Jsoo], the browser window is closing and it's your
-         last chance to peform something}}. *)
 
   (** {1 Event and signal sinks} *)
 

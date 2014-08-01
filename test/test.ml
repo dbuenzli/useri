@@ -125,7 +125,10 @@ let test_surface () =
   let pp_refresh ppf v =
     pp ppf "%a (abs: %a)" Time.pp_s v Time.pp_s (Time.elapsed ())
   in
+  trace_s Surface.pp_mode mname "mode" Surface.mode;
+  trace_s V2.pp mname "raster_size" Surface.raster_size;
   trace_s V2.pp mname "size" Surface.size;
+  trace_s V2.pp mname "pos" Surface.pos;
   trace_e pp_refresh mname "refresh" Surface.refresh;
   let animate _ =
     trace_s pp_float mname "animate" (Surface.animate ~span:0.3)

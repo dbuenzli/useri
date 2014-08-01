@@ -4,13 +4,12 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** 
-
-   * tsdl backend, compile with: 
+(**
+   * tsdl backend, compile with:
      ocamlfind ocamlopt -package tsdl,useri.tsdl,useri \
                         -linkpgk -o min.native min.ml
-   
-   * js_of_ocaml backend, compile with: 
+
+   * js_of_ocaml backend, compile with:
      ocamlfind ocamlc -package useri.jsoo, useri \
                       -linkpkg -o min.byte min.ml \
      && js_of_ocaml min.byte
@@ -20,19 +19,26 @@ open Gg
 open React
 open Useri
 
-let main () = 
-  let hidpi = App.env "HIDPI" ~default:true bool_of_string in
-  let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
-  let size = Size2.v 600. 400. in 
-  match App.init ~hidpi ~size ~mode () with 
+let setup size =
+  let s = S.value size in
+  let resize = S.l1 (Renderer.set_size r) size in
+  let draw = E.map (render r) Surface.refresh in
+  App.sink_event draw;
+  App.sink_signal resize;
+  Surface.steady_refresh ~until:E.never
+
+let main () =
+  let mode = Surface.mode_switch ~init:`Windowed (Key.up `Space) in
+  let surface = Surface.create ~mode in
+  match App.init ~surface () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () -> 
-      App.run (); 
-      match App.backend_scheme with 
+  | `Ok () ->
+      App.run ~until:App.quit ();
+      match App.backend_scheme with
       | `Sync -> App.release (); exit 0
       | `Async -> App.sink_event (E.map App.release App.quit)
 
-let () = main ()  
+let () = main ()
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2014 Daniel C. Bünzli.
@@ -41,7 +47,7 @@ let () = main ()
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
    are met:
-     
+
    1. Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
 

@@ -20,6 +20,10 @@ end
 (** Surface. *)
 module Surface : sig
 
+  type mode = [ `Windowed | `Fullscreen ]
+  val pp_mode : Format.formatter -> mode -> unit
+  val mode_switch : ?init:mode -> 'a React.event -> mode React.signal
+
   type anchor
 
   module Anchor : sig
@@ -32,7 +36,7 @@ module Surface : sig
     type colors = [ `RGBA_8888 | `RGB_565 ]
     type depth = [ `D_24 | `D_16 ]
     type stencil = [ `S_8 ]
-    type spec =
+    type t =
       { accelerated : bool option;
         multisample : int option;
         doublebuffer : bool;
@@ -42,10 +46,13 @@ module Surface : sig
         depth : depth option;
         stencil : stencil option;
         version : int * int; }
-    val default : spec
+    val default : t
   end
 
-  type kind = [ `Gl of Gl.spec | `Other ]
+  type kind = [ `Gl of Gl.t | `Other ]
+
+  val default_size : size2
+
 end
 
 (** User keyboard. *)
@@ -120,7 +127,7 @@ end
 (** Application  *)
 module App : sig
 
-  type mode = [ `Windowed | `Fullscreen ]
+  val default_name : string
 
   type launch_context = [ `Browser | `Gui | `Terminal ]
   val pp_launch_context : Format.formatter -> launch_context -> unit

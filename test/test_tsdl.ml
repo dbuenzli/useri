@@ -34,9 +34,10 @@ let test_setup () = match Useri.App.launch_context with
 let main () =
   redirect_logs ();
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
-  let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
   let size = Size2.v 600. 400. in
-  match App.init ~hidpi ~size ~mode () with
+  let mode = Surface.mode_switch ~init:`Windowed (Key.up `Space) in
+  let surface = Surface.create ~hidpi ~size ~mode () in
+  match App.init ~surface () with
   | `Error e -> Test.log "%s" e; exit 1
   | `Ok () ->
       test_setup ();

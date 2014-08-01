@@ -8,18 +8,12 @@ open Gg
 open React
 open Tsdl
 
-let str = Format.asprintf
-let execname =
-  let base = Filename.basename Sys.argv.(0) in
-  try Filename.chop_extension base with
-  | Invalid_argument _ (* this API is pathetic *) -> base
+let err_not_tsdl_file = "not a useri.tsdl file"
+let log_err msg = Useri_base.App.backend_log `Error msg
 
 let ( >>= ) x f = match x with
 | `Error _ as e -> e
 | `Ok v -> f v
-
-let err_not_tsdl_file = "not a useri.tsdl file"
-let log_err msg = Useri_base.App.backend_log `Error msg
 
 (* Time *)
 
@@ -159,40 +153,148 @@ end
 
 (* Surface *)
 
-let app = ref None
-let pos, set_pos = S.create P2.o
-let size, set_size = S.create Size2.unit
-
-let window_pos () = match !app with
-| None -> P2.o
-| Some (win, _) ->
-    let x, y = Sdl.get_window_position win in
-    P2.v (float x) (float y)
-
-let window_size () = match !app with
-| None -> Size2.unit
-| Some (win, _) ->
-    let w, h = Sdl.get_window_size win in
-    Size2.v (float w) (float h)
-
-let drawable_size () = match !app with
-| None -> Size2.unit
-| Some (win, _) ->
-    let w, h = Sdl.gl_get_drawable_size win in
-    Size2.v (float w) (float h)
-
 module Surface = struct
 
-  module Gl = Useri_base.Surface.Gl
+  type mode = Useri_base.Surface.mode
+  let pp_mode = Useri_base.Surface.pp_mode
+  let mode_switch = Useri_base.Surface.mode_switch
 
+  module Gl = Useri_base.Surface.Gl
+  type anchor = Useri_base.Surface.anchor
   type kind = Useri_base.Surface.kind
+
+  let mode_sig, set_mode_sig = S.create (S.const `Windowed)
+  let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
+  let set_mode_switch sm = set_mode_sig sm
+
+  type t =
+    { hidpi : bool;
+      pos : p2 option;
+      size : size2;
+      kind : kind;
+      anchor : anchor option;
+      mode : mode signal; }
+
+  let create ?(hidpi = true) ?pos ?(size = V2.v 600. 400.)
+      ?(kind = (`Gl Gl.default))
+      ?anchor
+      ?(mode = S.value mode_sig) () =
+    { hidpi; pos; size; kind; anchor; mode }
+
+  module Window = struct
+    let win = ref None
+
+    let pos () = match !win with
+    | None -> P2.o
+    | Some (win, _) ->
+        let x, y = Sdl.get_window_position win in
+        P2.v (float x) (float y)
+
+    let size () = match !win with
+    | None -> Size2.unit
+    | Some (win, _) ->
+        let w, h = Sdl.get_window_size win in
+        Size2.v (float w) (float h)
+
+    let drawable_size () = match !win with
+    | None -> Size2.unit
+    | Some (win, _) ->
+        let w, h = Sdl.gl_get_drawable_size win in
+        Size2.v (float w) (float h)
+
+    let setup_kind = function
+    | `Other -> `Ok ()
+    | `Gl c ->
+        let bool b = if b then 1 else 0 in
+        let ms_buffers, ms_samples = match c.Gl.multisample with
+        | None -> 0, 0
+        | Some ms_samples -> 1, ms_samples
+        in
+        let rsize, gsize, bsize, asize = match c.Gl.colors with
+        | `RGBA_8888 -> 8, 8, 8, 8
+        | `RGB_565 -> 5, 6, 5, 0
+        in
+        let dsize = match c.Gl.depth with
+        | None -> 0
+        | Some `D_16 -> 18
+        | Some `D_24 -> 24
+        in
+        let ssize = match c.Gl.stencil with
+        | None -> 0
+        | Some `S_8 -> 8
+        in
+        let set a v = Sdl.gl_set_attribute a v in
+        let accelerated () = match c.Gl.accelerated with
+        | None -> `Ok ()
+        | Some a -> set Sdl.Gl.accelerated_visual (bool a)
+        in
+        set Sdl.Gl.share_with_current_context (bool true)
+        >>= fun () -> accelerated ()
+        >>= fun () -> set Sdl.Gl.multisamplebuffers ms_buffers
+        >>= fun () -> set Sdl.Gl.multisamplesamples ms_samples
+        >>= fun () -> set Sdl.Gl.doublebuffer (bool c.Gl.doublebuffer)
+        >>= fun () -> set Sdl.Gl.stereo (bool c.Gl.stereo)
+        >>= fun () -> set Sdl.Gl.framebuffer_srgb_capable (bool c.Gl.srgb)
+        >>= fun () -> set Sdl.Gl.red_size rsize
+        >>= fun () -> set Sdl.Gl.green_size gsize
+        >>= fun () -> set Sdl.Gl.blue_size bsize
+        >>= fun () -> set Sdl.Gl.alpha_size asize
+        >>= fun () -> set Sdl.Gl.depth_size dsize
+        >>= fun () -> set Sdl.Gl.stencil_size ssize
+        >>= fun () -> set Sdl.Gl.context_profile_mask
+          Sdl.Gl.context_profile_core
+        >>= fun () -> set Sdl.Gl.context_major_version (fst c.Gl.version)
+        >>= fun () -> set Sdl.Gl.context_minor_version (snd c.Gl.version)
+
+    let create name s =
+      let mode = match (S.value s.mode) with
+      | `Windowed -> Sdl.Window.windowed
+      | `Fullscreen -> Sdl.Window.fullscreen_desktop
+      in
+      let x, y = match s.pos with
+      | None -> None, None
+      | Some pos -> Some (truncate (V2.x pos)), Some (truncate (V2.y pos))
+      in
+      let w, h = truncate (Size2.w s.size), truncate (Size2.h s.size) in
+      let atts = Sdl.Window.(opengl + resizable + hidden + mode) in
+      let atts = if s.hidpi then Sdl.Window.(atts + allow_highdpi) else atts in
+      setup_kind s.kind
+      >>= fun ()  -> Sdl.create_window ?x ?y ~w ~h name atts
+      >>= fun win -> Sdl.gl_create_context win
+      >>= fun ctx -> Sdl.gl_make_current win ctx
+      >>= fun ()  -> Sdl.gl_set_swap_interval 1
+      >>= fun ()  -> `Ok (win, ctx)
+
+    let destroy win ctx =
+      Sdl.gl_delete_context ctx;
+      Sdl.destroy_window win;
+      `Ok ()
+  end
 
   let anchor () = failwith "TODO"
 
+  let set_mode =
+    let set mode = match !Window.win with
+    | None -> ()
+    | Some (win, _) ->
+        let f = match mode with
+        | `Windowed -> Sdl.Window.windowed
+        | `Fullscreen -> Sdl.Window.fullscreen_desktop
+        in
+        match Sdl.set_window_fullscreen win f with
+        | `Ok () -> () | `Error msg ->
+            (* Log.err "app mode change: %s" msg *)
+            (* TODO *)
+            Printf.eprintf "app mode change: %s" msg
+    in
+    E.map set (S.changes mode)
+
   (* Properties *)
 
+  let pos, set_pos = S.create P2.o
+  let raster_size, set_raster_size = S.create Size2.unit
   let size, set_size = S.create Size2.unit
-  let update () = match !app with
+  let update () = match !Window.win with
   | Some (win, _) -> Sdl.gl_swap_window win
   | _ -> ()
 
@@ -266,94 +368,39 @@ module Surface = struct
     then (anim_add a; start_refreshes (Time.tick_now ()); s)
     else (anim_add a; s)
 
-  let sdl_setup = function
-  | `Other -> `Ok ()
-  | `Gl c ->
-      let bool b = if b then 1 else 0 in
-      let ms_buffers, ms_samples = match c.Gl.multisample with
-      | None -> 0, 0
-      | Some ms_samples -> 1, ms_samples
-      in
-      let rsize, gsize, bsize, asize = match c.Gl.colors with
-      | `RGBA_8888 -> 8, 8, 8, 8
-      | `RGB_565 -> 5, 6, 5, 0
-      in
-      let dsize = match c.Gl.depth with
-      | None -> 0
-      | Some `D_16 -> 18
-      | Some `D_24 -> 24
-      in
-      let ssize = match c.Gl.stencil with
-      | None -> 0
-      | Some `S_8 -> 8
-      in
-      let set a v = Sdl.gl_set_attribute a v in
-      let accelerated () = match c.Gl.accelerated with
-      | None -> `Ok ()
-      | Some a -> set Sdl.Gl.accelerated_visual (bool a)
-      in
-      set Sdl.Gl.share_with_current_context (bool true)
-      >>= fun () -> accelerated ()
-      >>= fun () -> set Sdl.Gl.multisamplebuffers ms_buffers
-      >>= fun () -> set Sdl.Gl.multisamplesamples ms_samples
-      >>= fun () -> set Sdl.Gl.doublebuffer (bool c.Gl.doublebuffer)
-      >>= fun () -> set Sdl.Gl.stereo (bool c.Gl.stereo)
-      >>= fun () -> set Sdl.Gl.framebuffer_srgb_capable (bool c.Gl.srgb)
-      >>= fun () -> set Sdl.Gl.red_size rsize
-      >>= fun () -> set Sdl.Gl.green_size gsize
-      >>= fun () -> set Sdl.Gl.blue_size bsize
-      >>= fun () -> set Sdl.Gl.alpha_size asize
-      >>= fun () -> set Sdl.Gl.depth_size dsize
-      >>= fun () -> set Sdl.Gl.stencil_size ssize
-      >>= fun () -> set Sdl.Gl.context_profile_mask Sdl.Gl.context_profile_core
-      >>= fun () -> set Sdl.Gl.context_major_version (fst c.Gl.version)
-      >>= fun () -> set Sdl.Gl.context_minor_version (snd c.Gl.version)
-end
-
-module Window = struct
-  let create hidpi pos size name surf_spec mode =
-    let mode = match mode with
-    | `Windowed -> Sdl.Window.windowed
-    | `Fullscreen -> Sdl.Window.fullscreen_desktop
-    in
-    let x, y = match pos with
-    | None -> None, None
-    | Some pos -> Some (truncate (V2.x pos)), Some (truncate (V2.y pos))
-    in
-    let w, h = truncate (Size2.w size), truncate (Size2.h size) in
-    let atts = Sdl.Window.(opengl + resizable + hidden + mode) in
-    let atts = if hidpi then Sdl.Window.(atts + allow_highdpi) else atts in
-    Surface.sdl_setup surf_spec
-    >>= fun ()  -> Sdl.create_window ?x ?y ~w ~h name atts
-    >>= fun win -> Sdl.gl_create_context win
-    >>= fun ctx -> Sdl.gl_make_current win ctx
-    >>= fun ()  -> Sdl.gl_set_swap_interval 1
-    >>= fun ()  -> `Ok (win, ctx)
-
-  let destroy win ctx =
-    Sdl.gl_delete_context ctx;
-    Sdl.destroy_window win;
-    `Ok ()
-
   let sdl_window e =
     match Sdl.Event.(window_event_enum (get e window_event_id)) with
     | `Exposed | `Resized ->
         let step = Step.create () in
-        let surface_size = drawable_size () in
-        Surface.set_size ~step surface_size;
-        set_pos ~step (window_pos ());
-        set_size ~step (window_size ());
+        set_raster_size ~step (Window.drawable_size ());
+        set_pos ~step (Window.pos ());
+        set_size ~step (Window.size ());
         Step.execute step;
         (* Avoid simultaneity so that the client can reshape *)
-        Surface.send_raw_refresh (Time.tick_now ())
+        send_raw_refresh (Time.tick_now ())
     | `Moved ->
         let step = Step.create () in
-        set_pos ~step (window_pos ());
+        set_pos ~step (Window.pos ());
         Step.execute step;
     | _ -> ()
+
+  let init step name s =
+    Window.create name s >>= fun i ->
+    Window.win := Some i;
+    set_mode_sig s.mode;
+    set_pos ~step (Window.pos ());
+    set_size ~step (Window.size ());
+    set_raster_size ~step (Window.drawable_size ());
+    `Ok ()
+
+  let show () = match !Window.win with
+  | None -> ()
+  | Some (win, _) -> Sdl.show_window win
+
+  let release step = match !Window.win with
+  | None -> ()
+  | Some (win, ctx) -> ignore (Window.destroy win ctx);
 end
-
-
 
 (* Mouse *)
 
@@ -638,43 +685,9 @@ end
 module App = struct
 
   let prefs_path ~org ~app = Sdl.get_pref_path ~org ~app
-  let size = size
-  let pos = pos
   let env k ~default parse = try parse (Sys.getenv k) with _ -> default
 
   let quit, send_quit = E.create ()
-
-  (* Mode *)
-
-  type mode = Useri_base.App.mode
-  let mode_switch ?(init = `Windowed) e =
-    let switch_mode = function
-    | `Windowed -> `Fullscreen
-    | `Fullscreen -> `Windowed
-    in
-    S.accum (E.map (fun _ m -> switch_mode m) e) init
-
-  let (mode_sig : mode signal signal), set_mode_sig =
-    S.create (S.const `Windowed)
-
-  let mode = S.switch ~eq:( == ) mode_sig
-  (* TODO maybe it would be better to delay. *)
-
-  let set_mode =
-    let set mode = match !app with
-    | None -> ()
-    | Some (win, _) ->
-        let f = match mode with
-        | `Windowed -> Sdl.Window.windowed
-        | `Fullscreen -> Sdl.Window.fullscreen_desktop
-        in
-        match Sdl.set_window_fullscreen win f with
-        | `Ok () -> () | `Error msg ->
-            (* Log.err "app mode change: %s" msg *)
-            (* TODO *)
-            Printf.eprintf "app mode change: %s" msg
-    in
-    E.map set (S.changes mode)
 
   (* Event and signal sinks *)
 
@@ -707,32 +720,21 @@ module App = struct
     Key.release step;
     Text.release step;
     Drop.release step;
+    Surface.release step;
     Step.execute step;
     Useri_base.App.(set_backend_logger default_backend_logger);
     if sinks then release_sinks ();
-    match !app with
-    | None -> ()
-    | Some (win, ctx) ->
-        ignore (Window.destroy win ctx);
-        Sdl.quit ();
-        ()
+    Sdl.quit ();
+    ()
 
-  let e_some = ref None
+  let e_some = ref (Some (Sdl.Event.create ()))
 
-  let init ?(hidpi = true) ?pos ?(size = V2.v 600. 400.)
-      ?(name = String.capitalize execname)
-      ?(surface = (`Gl Surface.Gl.default))
-      ?anchor
-      ?(mode = S.value mode_sig) () =
+  let init ?(name = Useri_base.App.default_name) ?(surface = Surface.create ())
+      ()
+    =
     Sdl.init Sdl.Init.(video + events) >>= fun () ->
-    Window.create hidpi pos size name surface (S.value mode) >>= fun i ->
     let step = React.Step.create () in
-    e_some := Some (Sdl.Event.create ());
-    app := Some i;
-    set_mode_sig mode;
-    set_pos ~step (window_pos ());
-    set_size ~step (window_size ());
-    Surface.set_size ~step (drawable_size ());
+    Surface.init step name surface >>= fun () ->
     Mouse.init step;
     Key.init step;
     Text.init step;
@@ -741,7 +743,7 @@ module App = struct
     let step = React.Step.create () in
     Surface.send_raw_refresh ~step (Time.tick_now ());
     React.Step.execute step;
-    (match !app with None -> () | Some (win, _) -> Sdl.show_window win);
+    Surface.show ();
     `Ok ()
 
   let do_event e =
@@ -753,10 +755,10 @@ module App = struct
     | `Quit -> send_quit ()
     | `Key_down -> Key.sdl_down e
     | `Key_up -> Key.sdl_up e
-    | `Window_event -> Window.sdl_window e
-    | `Mouse_button_down -> Mouse.sdl_button_down (window_size ()) e
-    | `Mouse_button_up -> Mouse.sdl_button_up (window_size ()) e
-    | `Mouse_motion -> Mouse.sdl_motion (window_size ()) e
+    | `Window_event -> Surface.sdl_window e
+    | `Mouse_button_down -> Mouse.sdl_button_down (Surface.Window.size ()) e
+    | `Mouse_button_up -> Mouse.sdl_button_up (Surface.Window.size ()) e
+    | `Mouse_motion -> Mouse.sdl_motion (Surface.Window.size ()) e
     | `Text_editing -> Text.sdl_editing e
     | `Text_input -> Text.sdl_input e
     | `Clipboard_update -> Text.sdl_clipboard_update ()

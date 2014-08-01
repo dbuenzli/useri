@@ -34,6 +34,19 @@ end
 
 module Surface = struct
 
+  type mode = [ `Windowed | `Fullscreen ]
+  let pp_mode ppf m = pp ppf "%s" begin match m with
+    | `Windowed -> "windowed"
+    | `Fullscreen -> "fullscreen"
+    end
+
+  let mode_switch ?(init = `Windowed) e =
+    let switch = function
+    | `Windowed -> `Fullscreen
+    | `Fullscreen -> `Windowed
+    in
+    S.accum (E.map (fun _ m -> switch m) e) init
+
   module Anchor = struct
     type t = Univ.t
     let create = Univ.create
@@ -46,7 +59,7 @@ module Surface = struct
     type colors = [ `RGBA_8888 | `RGB_565 ]
     type depth = [ `D_24 | `D_16 ]
     type stencil = [ `S_8 ]
-    type spec =
+    type t =
       { accelerated : bool option;
         multisample : int option;
         doublebuffer : bool;
@@ -69,7 +82,9 @@ module Surface = struct
         version = (3,2); }
   end
 
-  type kind = [ `Gl of Gl.spec | `Other ]
+  type kind = [ `Gl of Gl.t | `Other ]
+
+  let default_size = V2.v 600. 400.
 end
 
 (* Keyboard *)
@@ -253,7 +268,13 @@ end
 
 module App = struct
 
-  type mode = [ `Windowed | `Fullscreen ]
+  let default_name =
+    let base = Filename.basename Sys.argv.(0) in
+    let name =
+      try Filename.chop_extension base with
+      | Invalid_argument _ (* this API is pathetic *) -> base
+    in
+    String.capitalize name
 
   (* Launch context *)
 
@@ -278,7 +299,6 @@ module App = struct
     | `Sync -> "sync"
     | `Async -> "async"
     end
-
 
   let default_backend_logger kind msg =
     let kind = match kind with `Error -> "E" | `Warning -> "W" in

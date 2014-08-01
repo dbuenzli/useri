@@ -8,11 +8,6 @@ open Gg
 open React
 
 let str = Format.asprintf
-let execname =
-  let base = Filename.basename Sys.argv.(0) in
-  try Filename.chop_extension base with
-  | Invalid_argument _ (* this API is pathetic *) -> base
-
 let log_warn msg = Useri_base.App.backend_log `Warning msg
 let log_err msg = Useri_base.App.backend_log `Error msg
 let warn_time () = log_warn "performance.now () missing, using Date.now ()"
@@ -240,51 +235,33 @@ end
 
 (* Surface *)
 
-let canvas : Dom_html.canvasElement Js.t option ref = ref None
-
 module Surface = struct
+
+  (* Surface mode *)
+
+  type mode = Useri_base.Surface.mode
+  let pp_mode = Useri_base.Surface.pp_mode
+  let mode_switch = Useri_base.Surface.mode_switch
+
+  (* Surface specification *)
 
   module Gl = Useri_base.Surface.Gl
   type kind = Useri_base.Surface.kind
+  type anchor = Useri_base.Surface.anchor
 
-  let inj, proj = Useri_base.Surface.Anchor.create ()
-  let anchor_of_canvas = inj
-  let canvas_of_anchor a = match proj a with
-  | None -> invalid_arg err_not_jsoo_anchor
-  | Some c -> c
+  type t =
+      { hidpi : bool;
+        pos : p2 option;
+        size : size2;
+        anchor : anchor option;
+        mode : mode signal;
+        kind : kind; }
 
-  let size : size2 signal = fst (S.create Size2.zero)
-  let update : unit -> unit = fun () -> ()
-
-  let anchor () = match !canvas with
-  | None -> invalid_arg err_init
-  | Some c -> anchor_of_canvas c
-
-  let init ~hidpi ?pos ~size ~surface ?anchor ~mode () =
-    let c = match anchor with
-    | Some a -> canvas_of_anchor a
-    | None ->
-        let c = Dom_html.(createCanvas document) in
-        Dom.appendChild (Dom_html.document ## body) c;
-        c
-    in
-    match surface with
-    | `Other ->
-        let topx = str "%dpx" in
-        let w = Float.int_of_round (Size2.w size) in
-        let h = Float.int_of_round (Size2.h size) in
-        c ## style ## width <- Js.string (topx w);
-        c ## style ## height <- Js.string (topx h);
-        c ## width <- w;
-        c ## height <- h;
-        Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
-        Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
-        Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
-        c ## setAttribute (Js.string "tabindex", Js.string "1");
-(*        (Js.Unsafe.coerce c) ## focus (); *)
-        Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
-        canvas := Some c
-    | `Gl _ -> invalid_arg err_no_gl
+  let create ?(hidpi = true) ?pos ?(size = Useri_base.Surface.default_size)
+      ?(kind = `Gl Gl.default)
+      ?anchor
+      ?(mode = S.const `Windowed) () =
+    { hidpi; pos; size; anchor; mode; kind }
 
   (* Refresh *)
 
@@ -354,6 +331,56 @@ module Surface = struct
     if not !scheduled_refresh
     then (anim_add a; start_refreshes (); s)
     else (anim_add a; s)
+
+  (* Application surface *)
+
+  let canvas : Dom_html.canvasElement Js.t option ref = ref None
+
+  let inj, proj = Useri_base.Surface.Anchor.create ()
+  let anchor_of_canvas = inj
+  let canvas_of_anchor a = match proj a with
+  | None -> invalid_arg err_not_jsoo_anchor
+  | Some c -> c
+
+  let update : unit -> unit = fun () -> ()
+
+  let anchor () = match !canvas with
+  | None -> invalid_arg err_init
+  | Some c -> anchor_of_canvas c
+
+  let mode_sig, set_mode_sig = S.create (S.const `Windowed)
+  let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
+  let set_mode_switch ms = set_mode_sig ms
+
+  let (raster_size : size2 signal), set_raster_size = S.create Size2.zero
+  let (size : size2 signal), set_size = S.create Size2.zero
+  let pos : p2 signal = fst (S.create P2.o)
+
+  let init step s =
+    let c = match s.anchor with
+    | Some a -> canvas_of_anchor a
+    | None ->
+        let c = Dom_html.(createCanvas document) in
+        Dom.appendChild (Dom_html.document ## body) c;
+        c
+    in
+    match s.kind with
+    | `Other ->
+        let topx = str "%dpx" in
+        let w = Float.int_of_round (Size2.w s.size) in
+        let h = Float.int_of_round (Size2.h s.size) in
+        c ## style ## width <- Js.string (topx w);
+        c ## style ## height <- Js.string (topx h);
+        c ## width <- w;
+        c ## height <- h;
+        Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
+        Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
+        Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
+        c ## setAttribute (Js.string "tabindex", Js.string "1");
+(*        (Js.Unsafe.coerce c) ## focus (); *)
+        Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
+        canvas := Some c
+    | `Gl _ -> invalid_arg err_no_gl
 end
 
 (* Text *)
@@ -381,7 +408,7 @@ module Text = struct
        like in sdl. I'm not sure it's possible to integrate the scheme
        without getting Key events through the same input field. This
        needs further thinking. *)
-    match !canvas with
+    match !Surface.canvas with
     | None -> log_err err_init
     | Some canvas ->
         let i = Dom_html.(createInput ~_type:(Js.string "text") document) in
@@ -542,8 +569,7 @@ end
 module App = struct
 
   let prefs_path ~org ~app = failwith "TODO"
-  let size : size2 signal = fst (S.create Size2.zero)
-  let pos : p2 signal = fst (S.create P2.o)
+
   let env key ~default parse =
     let args = match Url.Current.get () with
     | None -> []
@@ -552,17 +578,6 @@ module App = struct
     in
     try parse (List.assoc key args) with
     | _ -> default
-
-  type mode = Useri_base.App.mode
-  let mode_switch ?(init = `Windowed) e =
-    let switch_mode = function
-    | `Windowed -> `Fullscreen
-    | `Fullscreen -> `Windowed
-    in
-    S.accum (E.map (fun _ m -> switch_mode m) e) init
-
-  let mode_sig, set_mode_sig = S.create (S.const `Windowed)
-  let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
 
   let quit, send_quit = E.create ()
 
@@ -589,17 +604,14 @@ module App = struct
 
   let send_stop ~step () = send_stop ~step (); running := false
 
-  let init ?(hidpi = true) ?pos ?(size = V2.v 600. 400.)
-      ?(name = String.capitalize execname)
-      ?(surface = (`Gl Surface.Gl.default))
-      ?anchor
-      ?(mode = S.value mode_sig) ()
-    =
+  let init ?(name = Useri_base.App.default_name)
+      ?(surface = Surface.create ()) ()
+      =
     let send_quit _ _ = send_quit (); false in
     Ev.cb Dom_html.window Dom_html.Event.unload send_quit;
     let step = React.Step.create () in
     Key.init step;
-    Surface.init ~hidpi ?pos ~size ~surface ?anchor ~mode ();
+    Surface.init step surface;
     Drop.init ();
     React.Step.execute step;
     `Ok ()
