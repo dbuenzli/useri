@@ -318,7 +318,6 @@ module Surface = struct
 
   let anims = ref []
   let anims_empty () = !anims = []
-  let anim_add a = anims := a :: !anims
   let anims_update ~step now =
     anims := List.find_all (fun a -> a ~step now) !anims
 
@@ -335,6 +334,10 @@ module Surface = struct
   let start_refreshes now = (* delay in case we are in an update step *)
     Time.Line.add_deadline Time.line now refresh_action;
     scheduled_refresh := true
+
+  let anim_add a now =
+    anims := a :: !anims;
+    if not !scheduled_refresh then (start_refreshes now)
 
   let refresher = ref E.never
 
@@ -364,9 +367,21 @@ module Surface = struct
       if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
       (set_s ~step (1. -. ((Time.tick_diff_secs stop now) /. span)); true)
     in
-    if not !scheduled_refresh
-    then (anim_add a; start_refreshes (Time.tick_now ()); s)
-    else (anim_add a; s)
+    anim_add a now; s
+
+  let stopwatch ~stop =
+    let s, set_s = S.create 0. in
+    let now = Time.tick_now () in
+    let start = ref (Some now) in
+    let a ~step now = match !start with
+    | None -> false (* remove anim *)
+    | Some start -> set_s ~step (Time.tick_diff_secs now start); true
+    in
+    let uref = ref E.never in
+    let u = E.map (fun _ -> start := None; until_rem !uref) stop in
+    uref := u; until_add u;
+    anim_add a now;
+    s
 
   let sdl_window e =
     match Sdl.Event.(window_event_enum (get e window_event_id)) with
@@ -537,6 +552,7 @@ module Key = struct
 
   let sdl_down e =
     let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in
+    if Sdl.Event.(get e keyboard_repeat) > 0 then () else
     let step = Step.create () in
     Useri_base.Key.handle_down ~step id;
     Step.execute step;

@@ -1,6 +1,6 @@
 * Try the Remove the src/$B/src_backend.mli links. I think the culprit is
   ocamlbuild whose build are not isolated enough. Try with assemblage.
-* Time.span rather use ms ?
+* TODO desync refresh from anim updates.
 * Add locale lookup
 * Add open_uri
 * Minimal examples.

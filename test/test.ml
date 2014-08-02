@@ -137,6 +137,14 @@ let test_surface () =
   let refresher = E.select [ Time.tick 1.5; Time.tick 1.6 ] in
   Surface.set_refresher refresher;
   App.sink_event (E.map (fun _ -> Surface.request_refresh ()) (Time.tick 1.7));
+  let t_down_stopwatch =
+    let eq = ( == ) in
+    let key = Key.uchar 't' in
+    let on_down () = Surface.stopwatch ~stop:(Key.up key) in
+    let t_holds = S.hold ~eq (S.const 0.) (E.map on_down (Key.down key)) in
+    S.switch ~eq t_holds
+  in
+  trace_s Time.pp_s mname "t_down_stopwatch" t_down_stopwatch;
   ()
 
 let test_app () =

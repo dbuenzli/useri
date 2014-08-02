@@ -155,9 +155,12 @@ module Surface : sig
        with:
       {ul
       {- [hidpi], if [true] (default) tries to get a high-dpi surface.}
-      {- [pos], a {e hint} to set the top-left corner of the surface in
-         its display container (e.g. screen). The top-left corner of
-         the display container is (0,0).}
+      {- [pos], a {e hint} to position the surface by using [pos] as
+         the position of the top-left corner of the surface in its
+         backend dependent display container.  The coordinates of the
+         top-left corner of the display container is [(0,0)] and
+         coordinate increase in from top to bottom and left to
+         right.}
       {- [size], the size of the surface in logical pixels.}
       {- [kind] is the kind of surface.}
       {- [handle] is a backend dependent surface handle. In certain
@@ -178,7 +181,7 @@ module Surface : sig
 
   val pos : p2 signal
   (** [pos] is the position of the top-left corner of the surface
-      in the surface's display container. *)
+      in the surface's backend dependent display container. *)
 
   val raster_size : size2 signal
   (** [raster_size] is the application's surface underlying raster
@@ -202,14 +205,13 @@ module Surface : sig
       account. *)
 
   val handle : unit -> Useri_base.Surface.handle
-  (** [handle ()] is the application's surface handle. *)
+  (** [handle ()] is the application's surface backend dependent handle. *)
 
   (** {1:refreshing Refreshing and animating surfaces}
 
-      The following events provide a set of event occurences and
-      signals for coordinating input, surface refresh and surface
-      animation while remaining energy efficient. See {!rendercoord}
-      for more information. *)
+      The following set events and signals should be used to
+      coordinate input, animation and surface refreshes in an energy
+      efficient manner. See {!rendercoord} for more information. *)
 
   val refresh_hz : int signal
   (** [refresh_hz] is the maximal {e hinted} frequency in hertz for {!refresh}
@@ -262,6 +264,11 @@ module Surface : sig
       during [span] seconds with the side effect of making
       [refresh]< occur at a hinted frequency of {!refresh_hz} until
       at least [span] is over. *)
+
+  val stopwatch : stop:'a event -> Time.span signal
+  (** [stopwatch stop] is a signal that counts time until [stop]
+      with the side effect of making [refresh] occur at a hinted
+      frequency of {!refresh_hz}. *)
 end
 
 (** User mouse.
@@ -743,9 +750,9 @@ end
 
   {1:rendercoord Input, animation and rendering coordination}
 
-  The {!Surface} module has a few events and signals for coordinating
-  input, animation and rendering. In general we can distinguish two patterns
-  for rendering:
+  The {!Surface} module provides events ans signals for coordinating
+  input, animation and rendering. In general we can distinguish two
+  patterns for rendering:
   {ul
   {- Rendering as an effectful event or signal. This is more likely to be
      done in simple cases whenever you are not using cooperative concurrency.
@@ -764,23 +771,27 @@ end
   is important to use this event for the following reasons:
   {ul
   {- It occurs at important times in the life cycle of the application.
-     For example whenever the surface is first shown to the user or immediately
-     after it changes size.}
+     For example whenever the application surface is first shown to the user
+     or immediately (but not simultaneously) after the application surface
+     {!Surface.raster_size} changes.}
   {- If steady refreshes are requested to perform animation it allows them
      to occur in an energy efficient way, avoiding overdraw. It will also
      gracefully cope with processing load by dropping animation frames if
-     the CPU cannot follow.}}
+     the rendering system cannot follow.}}
   There are various {e non-exclusive} ways of generating occurences of
   this event:
   {ul
   {- Steady refresh. If for a given time span until an event occurs
      (which may be {!E.never}) you need steady refreshing,
      invoke {!Surface.steady_refresh}}
-  {- Animation signals. If you need to perform animations during a
-     given time span use {!Surface.animate}. This returns you a signal
-     to control your animation that you can use to lift a function
-     returning interpolated images. Occurences of {!Surface.refresh}
-     will then automatically be generated during that time span.}
+  {- Animation signals. {!Surface.refresh} occurences are generated whenever
+     the following signals are created and change:
+     {ul
+     {- {!Surface.animate}, for animations with a known time span, returns
+        a signal increasing from [0.] to [1.] during that time span.}
+     {- {!Surface.stopwatch}, for animations with an unknown time span, returns
+        a signal monotically increasing from [0.] to the time until a specified
+        event occurs.}}}
   {- If there are a few events after which you know you need to redraw,
      {!E.select} them and register the resulting event with
      {!Surface.set_refresher}.}} *)

@@ -276,7 +276,7 @@ module Surface = struct
   let scheduled_refresh = ref false
   let refresh, send_raw_refresh = E.create ()
   let send_raw_refresh =
-    let last_refresh = ref (Time.tick_now ()) in
+    let last_refresh = ref Time.start in
     fun ?step now ->
       send_raw_refresh ?step (now -. !last_refresh);
       last_refresh := now
@@ -291,7 +291,6 @@ module Surface = struct
 
   let anims = ref []
   let anims_empty () = !anims = []
-  let anim_add a = anims := a :: !anims
   let anims_update ~step now =
     anims := List.find_all (fun a -> a ~step now) !anims
 
@@ -310,10 +309,11 @@ module Surface = struct
     Dom_html._requestAnimationFrame callback;
     scheduled_refresh := true
 
-  let generate_request _ =
-    if !scheduled_refresh then () else
-    start_refreshes ()
+  let anim_add a =
+    anims := a :: !anims;
+    if not !scheduled_refresh then start_refreshes () else ()
 
+  let generate_request _ = if !scheduled_refresh then () else start_refreshes ()
   let request_refresh () = generate_request ()
   let refresher = ref E.never
   let set_refresher e =
@@ -336,9 +336,19 @@ module Surface = struct
       if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
       (set_s ~step (1. -. ((stop -. now) /. span)); true)
     in
-    if not !scheduled_refresh
-    then (anim_add a; start_refreshes (); s)
-    else (anim_add a; s)
+    anim_add a; s
+
+  let stopwatch ~stop =
+    let s, set_s = S.create 0. in
+    let start = ref (Some (Time.tick_now ())) in
+    let a ~step now = match !start with
+    | None -> false (* remove anim *)
+    | Some start -> set_s ~step (now -. start); true
+    in
+    let uref = ref E.never in
+    let u = E.map (fun _ -> start := None; until_rem !uref) stop in
+    uref := u; until_add u;
+    anim_add a; s
 
   (* Application surface *)
 

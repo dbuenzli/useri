@@ -4,7 +4,7 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-(** [js_of_ocaml] backend specific functions. *)
+(** Useri [js_of_ocaml] backend specific functions. *)
 
 (** User keyboard.
 
