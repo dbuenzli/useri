@@ -81,13 +81,13 @@ end
 
 module Surface : sig
 
-  (** {1:anchor Anchors} *)
+  (** {1:handles Handle} *)
 
-  val anchor_of_canvas : Dom_html.canvasElement Js.t ->
-    Useri_base.Surface.anchor
-
-  val canvas_of_anchor : Useri_base.Surface.anchor ->
-    Dom_html.canvasElement Js.t
+  (** Surface handles. *)
+  module Handle : sig
+    val of_js : Dom_html.canvasElement Js.t -> Useri_base.Surface.handle
+    val to_js : Useri_base.Surface.handle -> Dom_html.canvasElement Js.t
+  end
 end
 
 (*---------------------------------------------------------------------------

@@ -24,12 +24,11 @@ module Surface : sig
   val pp_mode : Format.formatter -> mode -> unit
   val mode_switch : ?init:mode -> 'a React.event -> mode React.signal
 
-  type anchor
+  type handle
 
-  module Anchor : sig
-    type t = anchor
+  module Handle : sig
+    type t = handle
     val create : unit -> ('a -> t) * (t -> 'a option)
-    val none : t
   end
 
   module Gl : sig

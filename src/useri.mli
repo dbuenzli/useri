@@ -140,7 +140,8 @@ module Surface : sig
     (** [default] is the default OpenGL surface specification. See {!t}. *)
   end
 
-  type anchor = Useri_base.Surface.anchor
+  type handle = Useri_base.Surface.handle
+  (** The type for backend dependent surface handles. *)
 
   type kind = [ `Gl of Gl.t | `Other ]
   (** The type for surface kinds. *)
@@ -149,7 +150,7 @@ module Surface : sig
   (** The type for surface specification. *)
 
   val create : ?hidpi:bool -> ?pos:p2 -> ?size:size2 -> ?kind:kind ->
-    ?anchor:anchor -> ?mode:mode React.signal -> unit -> t
+    ?handle:handle -> ?mode:mode React.signal -> unit -> t
   (** [create hidpi pos size kind anchor mode  ()] is a surface specification
        with:
       {ul
@@ -159,7 +160,8 @@ module Surface : sig
          the display container is (0,0).}
       {- [size], the size of the surface in logical pixels.}
       {- [kind] is the kind of surface.}
-      {- [anchor] is TODO}
+      {- [handle] is a backend dependent surface handle. In certain
+         backends allows to interface [Useri] with pre-existing surfaces.}
       {- [mode] is the the surface mode.}}
 
       {b Warning.} Currently the [size] and [pos] arguments are specified
@@ -199,8 +201,8 @@ module Surface : sig
       to be called for your drawing commands to be taken into
       account. *)
 
-  val anchor : unit -> Useri_base.Surface.anchor
-  (** [anchor ()] is the application's surface anchor. *)
+  val handle : unit -> Useri_base.Surface.handle
+  (** [handle ()] is the application's surface handle. *)
 
   (** {1:refreshing Refreshing and animating surfaces}
 
@@ -258,7 +260,7 @@ module Surface : sig
   val animate : span:float -> float signal
   (** [animate span] is a signal that increases from [0.] to [1.]
       during [span] seconds with the side effect of making
-      [refresh] occur at a hinted frequency of {!refresh_hz} until
+      [refresh]< occur at a hinted frequency of {!refresh_hz} until
       at least [span] is over. *)
 end
 
@@ -422,8 +424,8 @@ module Key : sig
       cases for key repeat. First during text input, this is handled
       by {!Text} events. Second, for controlling changes to a variable
       over time (e.g. scrolling with the keyboard). In the latter case
-      it is better to use a continous function of time in the time
-      spanned by the up and down events TODO example. *)
+      it is better to use a function over a {!Surface.stopwatch}
+      signal until the key is up. *)
 end
 
 (** User textual input and clipboard.

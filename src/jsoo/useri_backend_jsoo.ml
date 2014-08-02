@@ -13,7 +13,7 @@ let log_err msg = Useri_base.App.backend_log `Error msg
 let warn_time () = log_warn "performance.now () missing, using Date.now ()"
 let warn_drag () = log_warn "Drag.file event not supported"
 let warn_but () = log_warn "unexpected e.which"
-let err_not_jsoo_anchor = "not a useri.jsoo anchor"
+let err_not_jsoo_handle = "not a useri.jsoo surface handle"
 let err_not_jsoo_file = "not a useri.jsoo file"
 let err_no_gl = "`Gl unsupported for WebGL use `Other"
 let err_init = "Useri not initialized"
@@ -247,21 +247,29 @@ module Surface = struct
 
   module Gl = Useri_base.Surface.Gl
   type kind = Useri_base.Surface.kind
-  type anchor = Useri_base.Surface.anchor
+  type handle = Useri_base.Surface.handle
+
+  module Handle = struct
+    let inj, proj = Useri_base.Surface.Handle.create ()
+    let of_js = inj
+    let to_js h = match proj h with
+    | None -> invalid_arg err_not_jsoo_handle
+    | Some c -> c
+  end
 
   type t =
       { hidpi : bool;
         pos : p2 option;
         size : size2;
-        anchor : anchor option;
+        handle : handle option;
         mode : mode signal;
         kind : kind; }
 
   let create ?(hidpi = true) ?pos ?(size = Useri_base.Surface.default_size)
       ?(kind = `Gl Gl.default)
-      ?anchor
+      ?handle
       ?(mode = S.const `Windowed) () =
-    { hidpi; pos; size; anchor; mode; kind }
+    { hidpi; pos; size; handle; mode; kind }
 
   (* Refresh *)
 
@@ -336,17 +344,11 @@ module Surface = struct
 
   let canvas : Dom_html.canvasElement Js.t option ref = ref None
 
-  let inj, proj = Useri_base.Surface.Anchor.create ()
-  let anchor_of_canvas = inj
-  let canvas_of_anchor a = match proj a with
-  | None -> invalid_arg err_not_jsoo_anchor
-  | Some c -> c
-
   let update : unit -> unit = fun () -> ()
 
-  let anchor () = match !canvas with
+  let handle () = match !canvas with
   | None -> invalid_arg err_init
-  | Some c -> anchor_of_canvas c
+  | Some c -> Handle.of_js c
 
   let mode_sig, set_mode_sig = S.create (S.const `Windowed)
   let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
@@ -357,8 +359,8 @@ module Surface = struct
   let pos : p2 signal = fst (S.create P2.o)
 
   let init step s =
-    let c = match s.anchor with
-    | Some a -> canvas_of_anchor a
+    let c = match s.handle with
+    | Some h -> Handle.to_js h
     | None ->
         let c = Dom_html.(createCanvas document) in
         Dom.appendChild (Dom_html.document ## body) c;

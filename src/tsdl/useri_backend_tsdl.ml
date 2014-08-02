@@ -160,7 +160,7 @@ module Surface = struct
   let mode_switch = Useri_base.Surface.mode_switch
 
   module Gl = Useri_base.Surface.Gl
-  type anchor = Useri_base.Surface.anchor
+  type handle = Useri_base.Surface.handle
   type kind = Useri_base.Surface.kind
 
   let mode_sig, set_mode_sig = S.create (S.const `Windowed)
@@ -172,14 +172,14 @@ module Surface = struct
       pos : p2 option;
       size : size2;
       kind : kind;
-      anchor : anchor option;
+      handle : handle option;
       mode : mode signal; }
 
   let create ?(hidpi = true) ?pos ?(size = V2.v 600. 400.)
       ?(kind = (`Gl Gl.default))
-      ?anchor
+      ?handle
       ?(mode = S.value mode_sig) () =
-    { hidpi; pos; size; kind; anchor; mode }
+    { hidpi; pos; size; kind; handle; mode }
 
   module Window = struct
     let win = ref None
@@ -271,7 +271,7 @@ module Surface = struct
       `Ok ()
   end
 
-  let anchor () = failwith "TODO"
+  let handle () = failwith "TODO"
 
   let set_mode =
     let set mode = match !Window.win with

@@ -47,13 +47,12 @@ module Surface = struct
     in
     S.accum (E.map (fun _ m -> switch m) e) init
 
-  module Anchor = struct
+  module Handle = struct
     type t = Univ.t
     let create = Univ.create
-    let none = fst (Univ.create ()) None
   end
 
-  type anchor = Anchor.t
+  type handle = Handle.t
 
   module Gl = struct
     type colors = [ `RGBA_8888 | `RGB_565 ]
