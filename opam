@@ -17,4 +17,3 @@ build:
                            "tsdl=%{tsdl:installed}%"
                            "jsoo=%{js_of_ocaml:installed}%" ]
 ]
-

@@ -1,3 +1,4 @@
+* Review all M.release.
 * Try the Remove the src/$B/src_backend.mli links. I think the culprit is
   ocamlbuild whose build are not isolated enough. Try with assemblage.
 * TODO desync refresh from anim updates.
@@ -9,6 +10,8 @@
   they are but have a notion of active surface.
 * Tsdl, add anchor
 * Support for touch.
+* Fullscreen, in jsoo the app may define mode, better have
+  an event.
 * Mouse.{left,middle,right}_double.
 * Jsoo: handle more of the Text api. This may need a rework of Key aswell,
   we could try to always maintain an input element at the same location

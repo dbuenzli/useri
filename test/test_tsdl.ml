@@ -35,8 +35,7 @@ let main () =
   redirect_logs ();
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let size = Size2.v 600. 400. in
-  let mode = Surface.mode_switch ~init:`Windowed (Key.up `Space) in
-  let surface = Surface.create ~hidpi ~size ~mode () in
+  let surface = Surface.create ~hidpi ~size () in
   match App.init ~surface () with
   | `Error e -> Test.log "%s" e; exit 1
   | `Ok () ->

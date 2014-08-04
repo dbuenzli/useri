@@ -33,6 +33,43 @@ let trace_s pp mname sname s =
 
 (* Tests setup by module *)
 
+let test_time () =
+  let mname = "Time" in
+  let log_tick c v =
+    log "Tick ! spanned:%a counter:%a"
+      Time.pp_s v Time.pp_s (Time.counter_value c)
+  in
+  let t_down_count =
+    let eq = ( == ) in
+    let key = Key.uchar 't' in
+    let on_down () = Time.count ~until:(Key.up key) in
+    let t_holds = S.hold ~eq (S.const 0.) (E.map on_down (Key.down key)) in
+    S.switch ~eq t_holds
+  in
+  let unit _ = trace_s pp_float "Time" "unit" (Time.unit ~span:0.3) in
+  trace_s Time.pp_s mname "t_down_count" t_down_count;
+  App.sink_event (E.map unit (Time.tick 1.1));
+  App.sink_event (E.map (log_tick (Time.counter ())) (Time.tick 1.));
+  log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
+  ()
+
+let test_surface () =
+  let mname = "Surface" in
+  let pp_refresh ppf v =
+    pp ppf "%a (abs: %a)" Time.pp_s v Time.pp_s (Time.elapsed ())
+  in
+  let mode = Surface.mode_switch ~init:`Windowed (Key.(up (uchar 'f'))) in
+  Surface.set_mode_switch mode;
+  trace_s Surface.pp_mode mname "mode" Surface.mode;
+  trace_s V2.pp mname "raster_size" Surface.raster_size;
+  trace_s V2.pp mname "size" Surface.size;
+  trace_s V2.pp mname "pos" Surface.pos;
+  trace_e pp_refresh mname "refresh" Surface.refresh;
+  let refresher = E.select [ Time.tick 1.5; Time.tick 1.6 ] in
+  Surface.set_refresher refresher;
+  App.sink_event (E.map (fun _ -> Surface.request_refresh ()) (Time.tick 1.7));
+  ()
+
 let test_mouse () =
   let mname = "Mouse" in
   trace_s V2.pp mname "pos" Mouse.pos;
@@ -101,16 +138,6 @@ let test_drop () =
   App.sink_event (E.map (fun f -> Drop.File.prepare f read) Drop.file);
   ()
 
-let test_time () =
-  let mname = "Time" in
-  let log_tick c v =
-    log "Tick ! spanned:%a counter:%a"
-      Time.pp_s v Time.pp_s (Time.counter_value c)
-  in
-  log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
-  App.sink_event (E.map (log_tick (Time.counter ())) (Time.tick 1.));
-  ()
-
 let test_human () =
   let mname = "Human" in
   let pp_feel c ppf = function
@@ -119,31 +146,6 @@ let test_human () =
   | `Left -> pp ppf "Left (%a)" Time.pp_s (Time.counter_value c)
   in
   trace_s (pp_feel (Time.counter ())) mname "feel ()" (Human.feel ());
-  ()
-
-let test_surface () =
-  let mname = "Surface" in
-  let pp_refresh ppf v =
-    pp ppf "%a (abs: %a)" Time.pp_s v Time.pp_s (Time.elapsed ())
-  in
-  trace_s Surface.pp_mode mname "mode" Surface.mode;
-  trace_s V2.pp mname "raster_size" Surface.raster_size;
-  trace_s V2.pp mname "size" Surface.size;
-  trace_s V2.pp mname "pos" Surface.pos;
-  trace_e pp_refresh mname "refresh" Surface.refresh;
-  let unit _ = trace_s pp_float "Time" "unit" (Time.unit ~span:0.3) in
-  App.sink_event (E.map unit (Time.tick 1.1));
-  let refresher = E.select [ Time.tick 1.5; Time.tick 1.6 ] in
-  Surface.set_refresher refresher;
-  App.sink_event (E.map (fun _ -> Surface.request_refresh ()) (Time.tick 1.7));
-  let t_down_stopwatch =
-    let eq = ( == ) in
-    let key = Key.uchar 't' in
-    let on_down () = Time.count ~until:(Key.up key) in
-    let t_holds = S.hold ~eq (S.const 0.) (E.map on_down (Key.down key)) in
-    S.switch ~eq t_holds
-  in
-  trace_s Time.pp_s mname "t_down_stopwatch" t_down_stopwatch;
   ()
 
 let test_app () =
@@ -157,6 +159,7 @@ let test_app () =
   trace_v App.pp_backend_scheme mname "backend_scheme" App.backend_scheme;
   trace_v App.pp_cpu_count mname "cpu_count" App.cpu_count;
   ()
+
 
 let test mods set_clipboard =
   let do_test m = mods = [] || List.mem m mods in

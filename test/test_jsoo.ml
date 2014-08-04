@@ -34,11 +34,7 @@ let main () =
   let global_key = App.env "global-key" ~default:false bool_of_string in
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let size = Size2.v 480. 300. in
-  let mode =
-    S.const `Windowed
-    (* Surface.mode_switch ~init:`Windowed (Key.up `Space) *)
-  in
-  let surface = Surface.create ~hidpi ~size ~mode ~kind:`Other () in
+  let surface = Surface.create ~hidpi ~size ~kind:`Other () in
   setup_jsoo global_key;
   match App.init ~surface () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
