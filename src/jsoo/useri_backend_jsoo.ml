@@ -30,6 +30,9 @@ module Ev = struct
     ()
 end
 
+(* Refreshing *)
+
+
 (* Time *)
 
 module Time = struct
@@ -63,11 +66,94 @@ module Time = struct
     ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
     e
 
+  (* Timing animation *)
+
+  module Refresh = struct
+    let refresh_hz, set_refresh_hz = S.create 60 (* No effect in this backend *)
+    let set_refresh_hz hz = set_refresh_hz hz
+
+    let refresh_scheduled = ref false
+    let refresh, send_raw_refresh = E.create ()
+    let send_raw_refresh =
+      let last_refresh = ref start in
+      fun ?step now ->
+        send_raw_refresh ?step (now -. !last_refresh);
+        last_refresh := now
+
+    let untils = ref []
+    let untils_empty () = !untils = []
+    let until_add u = untils := u :: !untils
+    let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
+
+    let anims = ref []
+    let anims_empty () = !anims = []
+    let anims_update ~step now =
+      anims := List.find_all (fun a -> a ~step now) !anims
+
+    let rec refresh_action () =
+      let now = tick_now () in
+      let step = Step.create () in
+      anims_update ~step now;
+      Step.execute step;
+      let step = Step.create () in
+      send_raw_refresh ~step now;
+      Step.execute step;
+      if untils_empty () && anims_empty ()
+      then (refresh_scheduled := false)
+      else start ()
+
+    and start () =
+      let callback = Js.wrap_callback refresh_action in
+      Dom_html._requestAnimationFrame callback;
+      refresh_scheduled := true
+
+    let generate_request _ = if !refresh_scheduled then () else start ()
+
+    let refresher = ref E.never
+    let set_refresher e =
+      E.stop (!refresher);
+      refresher := E.map generate_request e
+
+    let steady_refresh ~until =
+      let uref = ref E.never in
+      let u = E.map (fun _ -> until_rem !uref) until in
+      uref := u;
+      if not !refresh_scheduled
+      then (until_add u; start ())
+      else (until_add u)
+
+    let anim_add a =
+      anims := a :: !anims;
+      if not !refresh_scheduled then start () else ()
+  end
+
+  let count ~until =
+    let now = tick_now () in
+    let s, set_s = S.create 0. in
+    let start = ref (Some now) in
+    let stop = E.map (fun _ -> start := None) until in
+    let stop () = ignore (stop) (* keep a ref. to avoid gc *); !start in
+    let anim ~step now = match stop () with
+    | None -> false (* remove anim *)
+    | Some start -> set_s ~step (now -. start); true
+    in
+    Refresh.anim_add anim; s
+
+  let unit ~span =
+    let now = tick_now () in
+    let s, set_s = S.create 0. in
+    let stop = now +. span in
+    let anim ~step now =
+      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
+      (set_s ~step (1. -. ((stop -. now) /. span)); true)
+    in
+    Refresh.anim_add anim; s
+
   (* Counting time *)
 
   type counter = span
   let counter () = tick_now ()
-  let value c = tick_now () -. c
+  let counter_value c = tick_now () -. c
 
   (* Pretty printing time *)
 
@@ -273,82 +359,12 @@ module Surface = struct
 
   (* Refresh *)
 
-  let scheduled_refresh = ref false
-  let refresh, send_raw_refresh = E.create ()
-  let send_raw_refresh =
-    let last_refresh = ref Time.start in
-    fun ?step now ->
-      send_raw_refresh ?step (now -. !last_refresh);
-      last_refresh := now
-
-  let refresh_hz, set_refresh_hz = S.create 60
-  let set_refresh_hz hz = set_refresh_hz hz
-
-  let untils = ref []
-  let untils_empty () = !untils = []
-  let until_add u = untils := u :: !untils
-  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
-
-  let anims = ref []
-  let anims_empty () = !anims = []
-  let anims_update ~step now =
-    anims := List.find_all (fun a -> a ~step now) !anims
-
-  let rec refresh_action () =
-    let step = Step.create () in
-    let now = Time.tick_now () in
-    anims_update ~step now;
-    send_raw_refresh ~step now;
-    Step.execute step;
-    if untils_empty () && anims_empty ()
-    then (scheduled_refresh := false)
-    else start_refreshes ()
-
-  and start_refreshes () =
-    let callback = Js.wrap_callback refresh_action in
-    Dom_html._requestAnimationFrame callback;
-    scheduled_refresh := true
-
-  let anim_add a =
-    anims := a :: !anims;
-    if not !scheduled_refresh then start_refreshes () else ()
-
-  let generate_request _ = if !scheduled_refresh then () else start_refreshes ()
-  let request_refresh () = generate_request ()
-  let refresher = ref E.never
-  let set_refresher e =
-    E.stop (!refresher);
-    refresher := E.map generate_request e
-
-  let steady_refresh ~until =
-    let uref = ref E.never in
-    let u = E.map (fun _ -> until_rem !uref) until in
-    uref := u;
-    if not !scheduled_refresh
-    then (until_add u; start_refreshes ())
-    else (until_add u)
-
-  let animate ~span =
-    let s, set_s = S.create 0. in
-    let now = Time.tick_now () in
-    let stop = now +. span in
-    let a ~step now =
-      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
-      (set_s ~step (1. -. ((stop -. now) /. span)); true)
-    in
-    anim_add a; s
-
-  let stopwatch ~stop =
-    let s, set_s = S.create 0. in
-    let start = ref (Some (Time.tick_now ())) in
-    let a ~step now = match !start with
-    | None -> false (* remove anim *)
-    | Some start -> set_s ~step (now -. start); true
-    in
-    let uref = ref E.never in
-    let u = E.map (fun _ -> start := None; until_rem !uref) stop in
-    uref := u; until_add u;
-    anim_add a; s
+  let refresh = Time.Refresh.refresh
+  let request_refresh () = Time.Refresh.generate_request ()
+  let set_refresher = Time.Refresh.set_refresher
+  let steady_refresh = Time.Refresh.steady_refresh
+  let refresh_hz = Time.Refresh.refresh_hz
+  let set_refresh_hz = Time.Refresh.set_refresh_hz
 
   (* Application surface *)
 
@@ -368,7 +384,7 @@ module Surface = struct
   let (size : size2 signal), set_size = S.create Size2.zero
   let pos : p2 signal = fst (S.create P2.o)
 
-  let init step s =
+  let init _ s =
     let c = match s.handle with
     | Some h -> Handle.to_js h
     | None ->
@@ -621,11 +637,12 @@ module App = struct
       =
     let send_quit _ _ = send_quit (); false in
     Ev.cb Dom_html.window Dom_html.Event.unload send_quit;
-    let step = React.Step.create () in
+    let step = Step.create () in
     Key.init step;
     Surface.init step surface;
     Drop.init ();
-    React.Step.execute step;
+    Step.execute step;
+    Time.Refresh.send_raw_refresh (Time.tick_now ());
     `Ok ()
 
   let run_step () = send_start (); max_float

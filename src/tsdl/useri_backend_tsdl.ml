@@ -34,8 +34,8 @@ module Time = struct
   let period_of_hz hz =
     if hz = 0 then Int64.max_int else Int64.div pfreqi (Int64.of_int hz)
 
-  let tick_start = tick_now ()
-  let elapsed () = tick_diff_secs (tick_now ()) tick_start
+  let start = tick_now ()
+  let elapsed () = tick_diff_secs (tick_now ()) start
 
   module Line : sig
     type t
@@ -136,11 +136,98 @@ module Time = struct
     Line.add_deadline line deadline action;
     e
 
-  (* Counting time *)
+  (* Timing animations *)
+
+  module Refresh = struct
+    let refresh_hz, set_refresh_hz = S.create 60
+    let set_refresh_hz hz = set_refresh_hz hz
+    let scheduled_refresh = ref false
+    let refresh, send_raw_refresh = E.create ()
+    let send_raw_refresh =
+      let last_refresh = ref start in
+      fun ?step now ->
+        send_raw_refresh ?step (tick_diff_secs now !last_refresh);
+        last_refresh := now
+
+    let did_refresh = ref true
+    let send now = (* in its own update step *)
+      if !did_refresh then () else
+      (did_refresh := true; send_raw_refresh now)
+
+    let untils = ref []
+    let until_empty () = !untils = []
+    let until_add u = untils := u :: !untils
+    let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
+
+    let anims = ref []
+    let anims_empty () = !anims = []
+    let anims_update ~step now =
+      anims := List.find_all (fun a -> a ~step now) !anims
+
+    let rec refresh_action ~step ~now _ =
+      anims_update ~step now;
+      did_refresh := false; (* coordinates with Refresh.send *)
+      if until_empty () && anims_empty ()
+      then (scheduled_refresh := false)
+      else
+      let deadline = tick_add now (period_of_hz (S.value refresh_hz)) in
+      Line.add_deadline line deadline refresh_action;
+      scheduled_refresh := true
+
+    let start now = (* delay in case we are in an update step *)
+      Line.add_deadline line now refresh_action;
+      scheduled_refresh := true
+
+    let anim_add a now =
+      anims := a :: !anims;
+      if not !scheduled_refresh then (start now)
+
+    let generate_request _ =
+      if !scheduled_refresh then () else
+      start (tick_now ())
+
+    let request_refresh () = generate_request ()
+    let refresher = ref E.never
+    let set_refresher e =
+      E.stop (!refresher);
+      refresher := E.map generate_request e
+
+    let steady_refresh ~until =
+      let uref = ref E.never in
+      let u = E.map (fun _ -> until_rem !uref) until in
+      uref := u;
+      if not !scheduled_refresh
+      then (until_add u; start (tick_now ()))
+      else (until_add u)
+  end
+
+  let count ~until =
+    let now = tick_now () in
+    let s, set_s = S.create 0. in
+    let start = ref (Some now) in
+    let stop = E.map (fun _ -> start := None) until in
+    let stop () = ignore (stop) (* keep a ref. to avoid gc *); !start in
+    let anim ~step now = match stop () with
+    | None -> false (* remove anim *)
+    | Some start -> set_s ~step (tick_diff_secs now start); true
+    in
+    Refresh.anim_add anim now; s
+
+  let unit ~span =
+    let now = tick_now () in
+    let s, set_s = S.create 0. in
+    let stop = tick_add now (tick_of_secs span) in
+    let anim ~step now =
+      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
+      (set_s ~step (1. -. ((tick_diff_secs stop now) /. span)); true)
+    in
+    Refresh.anim_add anim now; s
+
+  (* Counters *)
 
   type counter = int64
   let counter () = tick_now ()
-  let value start =
+  let counter_value start =
     let dt = Int64.sub (tick_now ()) start in
     Int64.(to_float dt) /. pfreq
 
@@ -300,88 +387,14 @@ module Surface = struct
 
   (* Refreshing *)
 
-  let scheduled_refresh = ref false
-  let refresh, send_raw_refresh = E.create ()
-  let send_raw_refresh =
-    let last_refresh = ref (Time.tick_now ()) in
-    fun ?step now ->
-      send_raw_refresh ?step (Time.tick_diff_secs now !last_refresh);
-      last_refresh := now
+  let refresh = Time.Refresh.refresh
+  let request_refresh = Time.Refresh.request_refresh
+  let set_refresher = Time.Refresh.set_refresher
+  let steady_refresh = Time.Refresh.steady_refresh
+  let refresh_hz = Time.Refresh.refresh_hz
+  let set_refresh_hz = Time.Refresh.set_refresh_hz
 
-  let refresh_hz, set_refresh_hz = S.create 60
-  let set_refresh_hz hz = set_refresh_hz hz
-
-  let untils = ref []
-  let until_empty () = !untils = []
-  let until_add u = untils := u :: !untils
-  let until_rem u = untils := List.find_all (fun u' -> u != u') !untils
-
-  let anims = ref []
-  let anims_empty () = !anims = []
-  let anims_update ~step now =
-    anims := List.find_all (fun a -> a ~step now) !anims
-
-  let rec refresh_action ~step ~now _ =
-    anims_update ~step now;
-    send_raw_refresh ~step now;
-    if until_empty () && anims_empty ()
-    then (scheduled_refresh := false)
-    else
-    let deadline = Time.tick_add now (Time.period_of_hz (S.value refresh_hz)) in
-    Time.Line.add_deadline Time.line deadline refresh_action;
-    scheduled_refresh := true
-
-  let start_refreshes now = (* delay in case we are in an update step *)
-    Time.Line.add_deadline Time.line now refresh_action;
-    scheduled_refresh := true
-
-  let anim_add a now =
-    anims := a :: !anims;
-    if not !scheduled_refresh then (start_refreshes now)
-
-  let refresher = ref E.never
-
-  let generate_request _ =
-    if !scheduled_refresh then () else
-    start_refreshes (Time.tick_now ())
-
-  let request_refresh () = generate_request ()
-
-  let set_refresher e =
-    E.stop (!refresher);
-    refresher := E.map generate_request e
-
-  let steady_refresh ~until =
-    let uref = ref E.never in
-    let u = E.map (fun _ -> until_rem !uref) until in
-    uref := u;
-    if not !scheduled_refresh
-    then (until_add u; start_refreshes (Time.tick_now ()))
-    else (until_add u)
-
-  let animate ~span =
-    let s, set_s = S.create 0. in
-    let now = Time.tick_now () in
-    let stop = Time.tick_add now (Time.tick_of_secs span) in
-    let a ~step now =
-      if now >= stop then (set_s ~step 1.; false (* remove anim *)) else
-      (set_s ~step (1. -. ((Time.tick_diff_secs stop now) /. span)); true)
-    in
-    anim_add a now; s
-
-  let stopwatch ~stop =
-    let s, set_s = S.create 0. in
-    let now = Time.tick_now () in
-    let start = ref (Some now) in
-    let a ~step now = match !start with
-    | None -> false (* remove anim *)
-    | Some start -> set_s ~step (Time.tick_diff_secs now start); true
-    in
-    let uref = ref E.never in
-    let u = E.map (fun _ -> start := None; until_rem !uref) stop in
-    uref := u; until_add u;
-    anim_add a now;
-    s
+  (* Events *)
 
   let sdl_window e =
     match Sdl.Event.(window_event_enum (get e window_event_id)) with
@@ -392,7 +405,7 @@ module Surface = struct
         set_size ~step (Window.size ());
         Step.execute step;
         (* Avoid simultaneity so that the client can reshape *)
-        send_raw_refresh (Time.tick_now ())
+        Time.Refresh.send_raw_refresh (Time.tick_now ())
     | `Moved ->
         let step = Step.create () in
         set_pos ~step (Window.pos ());
@@ -749,16 +762,14 @@ module App = struct
       ()
     =
     Sdl.init Sdl.Init.(video + events) >>= fun () ->
-    let step = React.Step.create () in
+    let step = Step.create () in
     Surface.init step name surface >>= fun () ->
     Mouse.init step;
     Key.init step;
     Text.init step;
     Drop.init step;
-    React.Step.execute step;
-    let step = React.Step.create () in
-    Surface.send_raw_refresh ~step (Time.tick_now ());
-    React.Step.execute step;
+    Step.execute step;
+    Time.Refresh.send_raw_refresh (Time.tick_now ());
     Surface.show ();
     `Ok ()
 
@@ -786,6 +797,7 @@ module App = struct
     while Sdl.poll_event !e_some do do_event !e_some; done;
     let now = Time.tick_now () in
     let deadline = Time.Line.execute Time.line now in
+    Time.Refresh.send now;
     Float.fmin 10e-3 (Time.tick_diff_secs deadline now)
 
   let rec run ?until () =

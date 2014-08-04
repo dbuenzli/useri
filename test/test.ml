@@ -104,7 +104,8 @@ let test_drop () =
 let test_time () =
   let mname = "Time" in
   let log_tick c v =
-    log "Tick ! spanned:%a counter:%a" Time.pp_s v Time.pp_s (Time.value c)
+    log "Tick ! spanned:%a counter:%a"
+      Time.pp_s v Time.pp_s (Time.counter_value c)
   in
   log "%s.elapsed () = %a" mname Time.pp_s (Time.elapsed ());
   App.sink_event (E.map (log_tick (Time.counter ())) (Time.tick 1.));
@@ -114,8 +115,8 @@ let test_human () =
   let mname = "Human" in
   let pp_feel c ppf = function
   | `Interacting -> pp ppf "Interacting"
-  | `Interrupted -> pp ppf "Interrupted (%a)" Time.pp_s (Time.value c)
-  | `Left -> pp ppf "Left (%a)" Time.pp_s (Time.value c)
+  | `Interrupted -> pp ppf "Interrupted (%a)" Time.pp_s (Time.counter_value c)
+  | `Left -> pp ppf "Left (%a)" Time.pp_s (Time.counter_value c)
   in
   trace_s (pp_feel (Time.counter ())) mname "feel ()" (Human.feel ());
   ()
@@ -130,17 +131,15 @@ let test_surface () =
   trace_s V2.pp mname "size" Surface.size;
   trace_s V2.pp mname "pos" Surface.pos;
   trace_e pp_refresh mname "refresh" Surface.refresh;
-  let animate _ =
-    trace_s pp_float mname "animate" (Surface.animate ~span:0.3)
-  in
-  App.sink_event (E.map animate (Time.tick 1.1));
+  let unit _ = trace_s pp_float "Time" "unit" (Time.unit ~span:0.3) in
+  App.sink_event (E.map unit (Time.tick 1.1));
   let refresher = E.select [ Time.tick 1.5; Time.tick 1.6 ] in
   Surface.set_refresher refresher;
   App.sink_event (E.map (fun _ -> Surface.request_refresh ()) (Time.tick 1.7));
   let t_down_stopwatch =
     let eq = ( == ) in
     let key = Key.uchar 't' in
-    let on_down () = Surface.stopwatch ~stop:(Key.up key) in
+    let on_down () = Time.count ~until:(Key.up key) in
     let t_holds = S.hold ~eq (S.const 0.) (E.map on_down (Key.down key)) in
     S.switch ~eq t_holds
   in

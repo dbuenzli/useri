@@ -33,10 +33,7 @@ module Time : sig
   type span = float
   (** The type for time spans, in seconds. *)
 
-  (** {1 Passing time}
-
-      For timing animations, use the values described
-      {!Surface.refreshing}. *)
+  (** {1 Passing time} *)
 
   val elapsed : unit -> span
   (** [elapsed ()] is the number of seconds elapsed since the
@@ -51,7 +48,20 @@ module Time : sig
       assume that two different calls to {!tick} will necessarily
       yield two non-simultaneous events. *)
 
-  (** {1 Counting time} *)
+  (** {1 Timing animations}
+
+      These signals are for coordinating animation and surface
+      refreshes. See {!rendercoord} for more information. *)
+
+  val count : until:'a event -> span signal
+  (** [count ~until] is a signal that counts time starting from [0.]
+      until the next occurence of [until]. *)
+
+  val unit : span:span -> float signal
+  (** [unit ~span] is a signal that linearly increases from [0.] to [1.]
+      during [span] seconds. *)
+
+  (** {1 Counters} *)
 
   type counter
   (** The type for time counters. *)
@@ -59,8 +69,8 @@ module Time : sig
   val counter : unit -> counter
   (** [counter ()] is a counter counting time from call time on. *)
 
-  val value : counter -> span
-  (** [value c] is the current counter value in seconds. *)
+  val counter_value : counter -> span
+  (** [counter_value c] is the current counter value in seconds. *)
 
   (** {1 Pretty printing time} *)
 
@@ -207,18 +217,10 @@ module Surface : sig
   val handle : unit -> Useri_base.Surface.handle
   (** [handle ()] is the application's surface backend dependent handle. *)
 
-  (** {1:refreshing Refreshing and animating surfaces}
+  (** {1:refreshing Refreshing surfaces}
 
-      The following set events and signals should be used to
-      coordinate input, animation and surface refreshes in an energy
+      These events are for coordinating rendering in an energy
       efficient manner. See {!rendercoord} for more information. *)
-
-  val refresh_hz : int signal
-  (** [refresh_hz] is the maximal {e hinted} frequency in hertz for {!refresh}
-      occurences. The initial value is [60]. *)
-
-  val set_refresh_hz : int -> unit
-  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
 
   val refresh : float event
   (** [refresh] occurs whenever the surface needs to be redrawn with
@@ -232,43 +234,38 @@ module Surface : sig
 
       More precisely the following occurences are guaranteed:
       {ul
-      {- {e Simultaneously} with {!App.start}.}
-      {- Some time {e after} the {!size} signal changes value.}
+      {- Some time {e after} the {!size} signal changes value (including
+         the first time during {!App.init}).}
       {- Some time {e after} an occurence of the event set by
          {!set_refresher}.}
-      {- As a side effect of invocations to {!request_refresh}
-         {!steady_refresh} or {!animate}.}} *)
+      {- Some time {e after} a call to {!request_refresh}.}
+      {- Some time {e after} a {!Time.count} or {!Time.unit}
+         signal is created or updates.}}
+      [Useri] guarantees that this event doesn't occur simultaneously
+      with any of the events or signal it exposes. *)
 
   val request_refresh : unit -> unit
   (** [request_refresh ()] has the effect of making {!refresh}
-      occur some time later after it was called. This function call
+      occur some time after it was called. This function call
       is cheap and can be abused.
 
       {b Warning.} This function may be removed from the API in
       the future. *)
 
   val set_refresher : 'a event -> unit
-  (** [set_refresher r] uses the occurence of [r] to ask for
-      {!refresh} occurences at a maximal hinted frequency of
-      {!refresh_hz} hertz. Generated [refresh] occurences will not be
-      simultaneous with [r]. *)
+  (** [set_refresher r] uses sets [r] to be used to generate
+      an occurence of {!refresh} some time after each occurence of [r]. *)
 
   val steady_refresh : until:'a event -> unit
   (** [steady_refresh until] makes {!refresh} occur at the hinted
-      frequency of {!refresh_hz} hertz until [until] occurs. It's
-      value is the same as and will be simultaneous to {!refresh}
-      occurences. *)
+      frequency of {!refresh_hz} hertz until [until] occurs. *)
 
-  val animate : span:float -> float signal
-  (** [animate span] is a signal that increases from [0.] to [1.]
-      during [span] seconds with the side effect of making
-      [refresh]< occur at a hinted frequency of {!refresh_hz} until
-      at least [span] is over. *)
+  val refresh_hz : int signal
+  (** [refresh_hz] is the maximal {e hinted} frequency in hertz for {!refresh}
+      occurences. The initial value is [60]. *)
 
-  val stopwatch : stop:'a event -> Time.span signal
-  (** [stopwatch stop] is a signal that counts time until [stop]
-      with the side effect of making [refresh] occur at a hinted
-      frequency of {!refresh_hz}. *)
+  val set_refresh_hz : int -> unit
+  (** [set_refresh_hz] sets the value of {!refresh_hz}. *)
 end
 
 (** User mouse.
@@ -730,7 +727,6 @@ end
 
 ]}
 
-
    {1:cooperate Integration with cooperative concurency}
 
     A good way of managing side-effects at the boundaries of your
@@ -750,9 +746,9 @@ end
 
   {1:rendercoord Input, animation and rendering coordination}
 
-  The {!Surface} module provides events ans signals for coordinating
-  input, animation and rendering. In general we can distinguish two
-  patterns for rendering:
+  The {!Time} and {!Surface} modules provide support for coordinating
+  input, animation and rendering. We can distinguish two patterns for
+  rendering:
   {ul
   {- Rendering as an effectful event or signal. This is more likely to be
      done in simple cases whenever you are not using cooperative concurrency.
@@ -761,35 +757,35 @@ end
      simultanous with the {!Surface.refresh} event, in this step you can
      sample signals needed for rendering (as long as they {e do not}
      depend on {!Surface.refresh}).}
-  {- Rendering as a task, in more complex rendering scenarios and especially
-     with {{!cooperate}cooperative concurency} this is likely to be more
-     convenient. In this case {!Surface.refresh} occurences simply generate
-     a task that is run outside React's update step, this means that the
-     signals needed for rendering can be safely sampled using {!React.S.value}
+  {- Rendering as a task, in more complex rendering scenarios and
+     especially with {{!cooperate}cooperative concurency}. In this
+     case {!Surface.refresh} occurences simply generate a task that is
+     run outside React's update step, this means that the signals
+     needed for rendering can be safely sampled using {!React.S.value}
      for rendering data.}}
-  In both cases rendering is coordinated by the {!Surface.refresh} event. It
-  is important to use this event for the following reasons:
+  In both cases rendering is coordinated by the {!Surface.refresh}
+  event. It is important to use this event for the following reasons:
   {ul
   {- It occurs at important times in the life cycle of the application.
      For example whenever the application surface is first shown to the user
-     or immediately (but not simultaneously) after the application surface
+     or immediately after the application surface
      {!Surface.raster_size} changes.}
-  {- If steady refreshes are requested to perform animation it allows them
-     to occur in an energy efficient way, avoiding overdraw. It will also
-     gracefully cope with processing load by dropping animation frames if
-     the rendering system cannot follow.}}
+  {- If steady refreshes or timing signals are requested to perform animation
+     it allows them to occur in an energy efficient way, avoiding overdraw.
+     It will also gracefully cope with processing load by dropping animation
+     frames if the rendering system cannot follow.}}
   There are various {e non-exclusive} ways of generating occurences of
-  this event:
+  {!Surface.refresh}:
   {ul
   {- Steady refresh. If for a given time span until an event occurs
      (which may be {!E.never}) you need steady refreshing,
-     invoke {!Surface.steady_refresh}}
-  {- Animation signals. {!Surface.refresh} occurences are generated whenever
-     the following signals are created and change:
+     use {!Surface.steady_refresh}.}
+  {- Animation timing signals. {!Surface.refresh} occurences are generated
+     immediately after the following signals are created and updated:
      {ul
-     {- {!Surface.animate}, for animations with a known time span, returns
+     {- {!Time.unit}, for animations with a known time span, returns
         a signal increasing from [0.] to [1.] during that time span.}
-     {- {!Surface.stopwatch}, for animations with an unknown time span, returns
+     {- {!Time.count}, for animations with an unknown time span, returns
         a signal monotically increasing from [0.] to the time until a specified
         event occurs.}}}
   {- If there are a few events after which you know you need to redraw,
