@@ -14,6 +14,7 @@ let warn_time () = log_warn "performance.now () missing, using Date.now ()"
 let warn_drag () = log_warn "Drag.file event not supported"
 let warn_but () = log_warn "unexpected e.which"
 let warn_no_fullscreen = "Fullscreen mode unsupported"
+let warn_dpr = "window.devicePixelRatio undefined"
 let err_not_jsoo_handle = "not a useri.jsoo surface handle"
 let err_not_jsoo_file = "not a useri.jsoo file"
 let err_no_gl = "`Gl unsupported for WebGL use `Other"
@@ -321,13 +322,7 @@ end
 
 module Surface = struct
 
-  (* Surface mode *)
-
   type mode = Useri_base.Surface.mode
-  let pp_mode = Useri_base.Surface.pp_mode
-  let mode_switch = Useri_base.Surface.mode_switch
-
-  (* Surface specification *)
 
   module Gl = Useri_base.Surface.Gl
   type kind = Useri_base.Surface.kind
@@ -346,56 +341,28 @@ module Surface = struct
         pos : p2 option;
         size : size2 option;
         handle : handle option;
-        mode : mode signal;
+        mode : mode;
         kind : kind; }
 
-  let create ?(hidpi = true) ?pos ?size
-      ?(kind = `Gl Gl.default)
-      ?handle
-      ?(mode = S.const `Windowed) () =
-    { hidpi; pos; size; handle; mode; kind }
-
-  (* Refresh *)
-
-  let refresh = Time.Refresh.refresh
-  let request_refresh () = Time.Refresh.generate_request ()
-  let set_refresher = Time.Refresh.set_refresher
-  let steady_refresh = Time.Refresh.steady_refresh
-  let refresh_hz = Time.Refresh.refresh_hz
-  let set_refresh_hz = Time.Refresh.set_refresh_hz
-
-  (* Application surface *)
-
   type surface =
-    { canvas : Dom_html.canvasElement Js.t }
+    { spec : t;
+      canvas : Dom_html.canvasElement Js.t;  }
 
   let surface : surface option ref = ref None
 
-  let update : unit -> unit = fun () -> ()
+  (* Surface mode *)
 
-  let handle () = match !surface with
-  | None -> invalid_arg err_init
-  | Some s -> Handle.of_js s.canvas
-
-  let mode_sig, set_mode_sig = S.create (S.const `Windowed)
-  let mode = S.switch ~eq:( == ) mode_sig
-  let set_mode_switch ms = set_mode_sig ms
-
-  let pos, set_pos = S.create P2.o
-  let raster_size, set_raster_size = S.create Size2.zero
-  let size, set_size = S.create Size2.zero
-
-  let set_canvas_size step c size =
-    let topx = str "%dpx" in
-    let w = Float.int_of_round (Size2.w size) in
-    let h = Float.int_of_round (Size2.h size) in
-    c ## style ## width <- Js.string (topx w);
-    c ## style ## height <- Js.string (topx h);
-    c ## width <- w;
-    c ## height <- h;
-    set_raster_size ~step (Size2.v (float w) (float h));
-    set_size ~step (Size2.v (float w) (float h));
-    ()
+  let fullscreenchange () =
+    let d = Dom_html.document ## documentElement in
+    if Js.Optdef.test ((Js.Unsafe.coerce d) ## requestFullscreen)
+    then Some (Dom.Event.make "fullscreenchange")
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## mozRequestFullScreen)
+    then Some (Dom.Event.make "mozfullscreenchange")
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## webkitRequestFullScreen)
+    then Some (Dom.Event.make "webkitfullscreenchange")
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## msRequestFullscreen)
+    then Some (Dom.Event.make "msfullscreenchange")
+    else None
 
   let requestFullscreen c =
     if Js.Optdef.test ((Js.Unsafe.coerce c) ## requestFullscreen)
@@ -421,32 +388,121 @@ module Surface = struct
     then (Js.Unsafe.coerce d) ## msExitFullscreen ()
     else log_warn warn_no_fullscreen
 
+  let request_mode mode = match !surface with
+  | None -> ()
+  | Some s ->
+      match mode with
+      | `Windowed -> exitFullscreen ()
+      | `Fullscreen -> requestFullscreen (Dom_html.document## documentElement)
+
+  let (mode_setter : mode event event), set_mode_setter = E.create ()
+  let mode_setter = E.switch E.never mode_setter
+  let set_mode_setter me = set_mode_setter me
+  let mode_request = E.map request_mode mode_setter
+
+  let mode, set_mode = S.create `Windowed
+  let mode_flip e =
+    let flip _ m = Useri_base.Surface.mode_flip m in
+    S.sample flip e (S.fix `Windowed (fun pred -> mode, pred))
+
+  let pp_mode = Useri_base.Surface.pp_mode
+
+  (* Surface specification *)
+
+  let create ?(hidpi = true) ?pos ?size
+      ?(kind = `Gl Gl.default)
+      ?handle
+      ?(mode = `Windowed) () =
+    { hidpi; pos; size; handle; mode; kind }
+
+  (* Refresh *)
+
+  let refresh = Time.Refresh.refresh
+  let request_refresh () = Time.Refresh.generate_request ()
+  let set_refresher = Time.Refresh.set_refresher
+  let steady_refresh = Time.Refresh.steady_refresh
+  let refresh_hz = Time.Refresh.refresh_hz
+  let set_refresh_hz = Time.Refresh.set_refresh_hz
+
+  (* Application surface *)
+
+  let update : unit -> unit = fun () -> ()
+
+  let handle () = match !surface with
+  | None -> invalid_arg err_init
+  | Some s -> Handle.of_js s.canvas
+
+  let pos, set_pos = S.create P2.o
+  let raster_size, set_raster_size = S.create Size2.zero
+  let size, set_size = S.create Size2.zero
+
+  let device_pixel_ratio =
+    if Js.Optdef.test ((Js.Unsafe.coerce Dom_html.window) ## devicePixelRatio)
+    then (fun () -> (Js.Unsafe.coerce Dom_html.window) ## devicePixelRatio)
+    else (log_warn warn_dpr; fun () -> 1.0)
+
+  let sync_canvas_size step hidpi c =
+    let pixel_ratio = if hidpi then device_pixel_ratio () else 1. in
+    let r = (c :> Dom_html.element Js.t) ## getBoundingClientRect () in
+    let w = r ## right -. r ## left in
+    let h = r ## bottom -. r ## top in
+    let rw = Float.int_of_round (w *. pixel_ratio) in
+    let rh = Float.int_of_round (h *. pixel_ratio) in
+    c ## width <- rw;
+    c ## height <- rh;
+    set_pos ~step (P2.v (r ## left) (r ## top));
+    set_raster_size ~step (Size2.v (float rw) (float rh));
+    set_size ~step (Size2.v w h);
+    ()
+
+  let set_canvas_size step hidpi c size =
+    let to_css d = str "%dpx" d in
+    let w = Float.int_of_round (Size2.w size) in
+    let h = Float.int_of_round (Size2.h size) in
+    c ## style ## width <- Js.string (to_css w);
+    c ## style ## height <- Js.string (to_css h);
+    sync_canvas_size step hidpi c;
+    ()
 
   let sync () = match !surface with
   | None -> ()
-  | Some s -> ()
+  | Some s ->
+      let step = Step.create () in
+      sync_canvas_size step s.spec.hidpi s.canvas;
+      Step.execute step;
+      Time.Refresh.generate_request ();
+      ()
 
-  let resize_cb _ e = sync (); true
-
-
-  let set_mode =
-    let set mode = match !surface with
-    | None -> ()
-    | Some s ->
-        match mode with
-        | `Windowed -> exitFullscreen ()
-        | `Fullscreen ->
-            requestFullscreen (Dom_html.document ## documentElement);
-            (Js.Unsafe.coerce s.canvas) ## focus ();
+  let mode_change_cb _ _ =
+    let d = Dom_html.document in
+    let is_full =
+      if Js.Optdef.test ((Js.Unsafe.coerce d) ## fullscreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ## fullscreenElement)
+      else if Js.Optdef.test ((Js.Unsafe.coerce d) ## mozFullScreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ## mozFullScreenElement)
+      else if Js.Optdef.test ((Js.Unsafe.coerce d) ##
+                                webkitCurrentFullScreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ## webkitCurrentFullScreenElement)
+      else if Js.Optdef.test ((Js.Unsafe.coerce d) ## msFullscreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ## msFullscreenElement)
+      else false
     in
-    E.map set (S.changes mode)
+    match !surface with
+    | None -> true
+    | Some s ->
+        let step = Step.create () in
+        set_mode ~step (if is_full then `Fullscreen else `Windowed);
+        sync_canvas_size step s.spec.hidpi s.canvas;
+        Step.execute step;
+        Time.Refresh.generate_request ();
+        true
 
   let init step s =
     let c = match s.handle with
     | Some h ->
         let c = Handle.to_js h in
         begin match s.size with
-        | Some size -> set_canvas_size step c size
+        | Some size -> set_canvas_size step s.hidpi c size
         | None -> ()
         end;
         c
@@ -457,7 +513,7 @@ module Surface = struct
         | None -> Useri_base.Surface.default_size
         in
         Dom.appendChild (Dom_html.document ## body) c;
-        set_canvas_size step c size;
+        set_canvas_size step s.hidpi c size;
         c
     in
     begin match s.kind with
@@ -466,18 +522,20 @@ module Surface = struct
         Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
         Ev.cb c Dom_html.Event.mousemove Mouse.move_cb;
         c ## setAttribute (Js.string "tabindex", Js.string "1");
-(*        (Js.Unsafe.coerce c) ## focus (); *)
+        (*        (Js.Unsafe.coerce c) ## focus (); *)
         Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
-        Ev.cb Dom_html.window Dom_html.Event.resize resize_cb;
-        surface := Some { canvas = c }
+        surface := Some { spec = s; canvas = c }
     | `Gl _ -> invalid_arg err_no_gl
     end;
-    set_mode_sig ~step s.mode;
+    begin match fullscreenchange () with
+    | None -> ()
+    | Some e -> Ev.cb Dom_html.document e mode_change_cb;
+    end;
+    request_mode s.mode;
     ()
 
-
   let release ~step =
-    set_mode_sig ~step (S.const `Windowed);
+    request_mode `Windowed;
     set_pos ~step P2.o;
     set_raster_size ~step Size2.zero;
     set_size ~step Size2.zero;
@@ -716,7 +774,7 @@ module App = struct
     Surface.init step surface;
     Drop.init ();
     Step.execute step;
-    Time.Refresh.send_raw_refresh (Time.tick_now ());
+    Time.Refresh.generate_request ();
     `Ok ()
 
   let run_step () = send_start (); max_float

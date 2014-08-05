@@ -35,17 +35,11 @@ end
 module Surface = struct
 
   type mode = [ `Windowed | `Fullscreen ]
+  let mode_flip = function `Windowed -> `Fullscreen | `Fullscreen -> `Windowed
   let pp_mode ppf m = pp ppf "%s" begin match m with
     | `Windowed -> "windowed"
     | `Fullscreen -> "fullscreen"
     end
-
-  let mode_switch ?(init = `Windowed) e =
-    let switch = function
-    | `Windowed -> `Fullscreen
-    | `Fullscreen -> `Windowed
-    in
-    S.accum (E.map (fun _ m -> switch m) e) init
 
   module Handle = struct
     type t = Univ.t

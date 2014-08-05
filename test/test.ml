@@ -58,8 +58,7 @@ let test_surface () =
   let pp_refresh ppf v =
     pp ppf "%a (abs: %a)" Time.pp_s v Time.pp_s (Time.elapsed ())
   in
-  let mode = Surface.mode_switch ~init:`Windowed (Key.(up (uchar 'f'))) in
-  Surface.set_mode_switch mode;
+  Surface.(set_mode_setter (mode_flip (Key.(up (uchar 'f')))));
   trace_s Surface.pp_mode mname "mode" Surface.mode;
   trace_s V2.pp mname "raster_size" Surface.raster_size;
   trace_s V2.pp mname "size" Surface.size;

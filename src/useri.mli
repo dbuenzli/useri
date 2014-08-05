@@ -95,13 +95,22 @@ module Surface : sig
   type mode = [ `Windowed | `Fullscreen ]
   (** The type for surface modes. *)
 
+  val mode : mode signal
+  (** [mode] is the application's surface mode. The value of this
+      signal is defined by the [~mode] argument of the surface given
+      to {!App.init}, the occurences of the event specified by
+      {!set_mode_setter} and external events. *)
+
+  val set_mode_setter : mode event -> unit
+  (** [set_mode_setter me] uses occurences of [me] to set, if possible,
+      the current surface's application mode and the value of {!mode}. *)
+
+  val mode_flip : 'a event -> mode event
+  (** [mode_flip e] is an event which occur whenever [e] does
+      with the opposite mode of {!mode}'s value. *)
+
   val pp_mode : Format.formatter -> mode -> unit
   (** [pp_mode ppf m] prints an unspecified representation of [m] on [ppf]. *)
-
-  val mode_switch : ?init:mode -> 'a event -> mode signal
-  (** [mode_switch init e] is a signal that has value [init]
-      (defaults to [`Windowed]) and switches mode on each occurence
-      of [e]. *)
 
   (** {1:surfaces Surface specification} *)
 
@@ -160,7 +169,7 @@ module Surface : sig
   (** The type for surface specification. *)
 
   val create : ?hidpi:bool -> ?pos:p2 -> ?size:size2 -> ?kind:kind ->
-    ?handle:handle -> ?mode:mode React.signal -> unit -> t
+    ?handle:handle -> ?mode:mode -> unit -> t
   (** [create hidpi pos size kind anchor mode  ()] is a surface specification
        with:
       {ul
@@ -199,15 +208,6 @@ module Surface : sig
 
   val size : size2 signal
   (** [size] is the application's surface logical size. *)
-
-  val mode : mode signal
-  (** [mode] is the application's surface mode. This signal is defined
-      by the [~mode] argument of the surface given to {!init} or the signal
-      specified by {!set_mode_switch}. *)
-
-  val set_mode_switch : mode signal -> unit
-  (** [set_mode_switch ms] sets [ms] as being the signal that defines the
-      surface's application mode. See {!mode}. *)
 
   val update : unit -> unit
   (** [update ()] updates the rendering surface. This has

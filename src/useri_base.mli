@@ -21,8 +21,8 @@ end
 module Surface : sig
 
   type mode = [ `Windowed | `Fullscreen ]
+  val mode_flip : mode -> mode
   val pp_mode : Format.formatter -> mode -> unit
-  val mode_switch : ?init:mode -> 'a React.event -> mode React.signal
 
   type handle
 

@@ -242,17 +242,26 @@ end
 
 module Surface = struct
 
+  (* Surface mode *)
+
   type mode = Useri_base.Surface.mode
+
+  let mode_setter, set_mode_setter = E.create ()
+  let mode_setter = E.switch E.never mode_setter
+  let set_mode_setter me = set_mode_setter me
+  let env_mode, send_env_mode = E.create ()
+  let mode = S.hold `Windowed (E.select [env_mode; mode_setter])
+  let mode_flip e =
+    let flip _ m = Useri_base.Surface.mode_flip m in
+    S.sample flip e (S.fix `Windowed (fun pred -> mode, pred))
+
   let pp_mode = Useri_base.Surface.pp_mode
-  let mode_switch = Useri_base.Surface.mode_switch
+
+  (* Surface specification *)
 
   module Gl = Useri_base.Surface.Gl
   type handle = Useri_base.Surface.handle
   type kind = Useri_base.Surface.kind
-
-  let mode_sig, set_mode_sig = S.create (S.const `Windowed)
-  let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
-  let set_mode_switch sm = set_mode_sig sm
 
   type t =
     { hidpi : bool;
@@ -260,12 +269,12 @@ module Surface = struct
       size : size2;
       kind : kind;
       handle : handle option;
-      mode : mode signal; }
+      mode : mode; }
 
   let create ?(hidpi = true) ?pos ?(size = V2.v 600. 400.)
       ?(kind = (`Gl Gl.default))
       ?handle
-      ?(mode = S.value mode_sig) () =
+      ?(mode = `Windowed) () =
     { hidpi; pos; size; kind; handle; mode }
 
   module Window = struct
@@ -334,7 +343,7 @@ module Surface = struct
         >>= fun () -> set Sdl.Gl.context_minor_version (snd c.Gl.version)
 
     let create name s =
-      let mode = match (S.value s.mode) with
+      let mode = match s.mode with
       | `Windowed -> Sdl.Window.windowed
       | `Fullscreen -> Sdl.Window.fullscreen_desktop
       in
@@ -415,7 +424,7 @@ module Surface = struct
   let init step name s =
     Window.create name s >>= fun i ->
     Window.win := Some i;
-    set_mode_sig s.mode;
+    send_env_mode ~step s.mode;
     set_pos ~step (Window.pos ());
     set_size ~step (Window.size ());
     set_raster_size ~step (Window.drawable_size ());
