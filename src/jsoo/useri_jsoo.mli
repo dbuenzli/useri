@@ -81,15 +81,44 @@ end
 
 (** Surface.
 
-    {b Note.} TODO resize events, only on window resize.
 
 *)
 module Surface : sig
 
+  (** {1:smode Surface mode}
 
-  val sync : unit -> unit
-  (** [sync ()] makes sure that the application's properties
-      are in sync. N.b. can be called in an update step. *)
+      [`Fullscreen] mode uses JavaScript's
+      {{:http://www.w3.org/TR/fullscreen/}Fullscreen API} and applies
+      it to the document element rather than the surface itself. This
+      is the most flexible as it allows you to keep surrounding
+      elements around the surface or hide them using the CSS
+      {{:https://developer.mozilla.org/en-US/docs/Web/CSS/:fullscreen}
+      fullscreen} pseudo-class. *)
+
+  (** {1:sspec Surface specification}
+
+      Take into account the following points:
+      {ul
+      {- The [pos] argument of {!Useri.Surface.create} is ignored.}
+      {- If the [size] argument is unspecified. The surface's size
+         is not set explicitely but inherited
+         from the document itself (e.g. through CSS).}} *)
+
+  (** {1:propsupdate Surface properties updates}
+
+      Browser lack the ability to detect element bounding box
+      changes as such {!Useri.Surface.pos}, {!Useri.Surface.raster_size} and
+      {!Useri.Surface.size} only get updated, if needed, on
+      {!Useri.Surface.mode} changes and window resizes. If that
+      doesn't handle all your needs you can call {!request_sync_props}
+      to request the surface properties to be synchronized. *)
+
+  val request_sync_props : unit -> unit
+  (** [request_sync_props ()] asks to make sure that the application's
+      surface {!Useri.Surface.pos}, {!Useri.Surface.raster_size} and
+      {!Useri.Surface.size} properties are in sync with the surface's
+      element bounding box some time after it was called (can be
+      called in a React step). *)
 
   (** {1:handles Handle} *)
 
@@ -98,9 +127,6 @@ module Surface : sig
     val of_js : Dom_html.canvasElement Js.t -> Useri_base.Surface.handle
     val to_js : Useri_base.Surface.handle -> Dom_html.canvasElement Js.t
   end
-
-
-
 end
 
 (*---------------------------------------------------------------------------

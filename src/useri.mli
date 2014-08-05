@@ -90,7 +90,10 @@ end
     is specified by a {!t} value given to {!App.init}. *)
 module Surface : sig
 
-  (** {1:mode Surface mode} *)
+  (** {1:smode Surface mode}
+
+      See also {{!Useri_jsoo.Surface.smode}surface mode information}
+      in the [`Jsoo] backend. *)
 
   type mode = [ `Windowed | `Fullscreen ]
   (** The type for surface modes. *)
@@ -112,7 +115,10 @@ module Surface : sig
   val pp_mode : Format.formatter -> mode -> unit
   (** [pp_mode ppf m] prints an unspecified representation of [m] on [ppf]. *)
 
-  (** {1:surfaces Surface specification} *)
+  (** {1:surfaces Surface specification}
+
+      See also {{!Useri_jsoo.Surface.sspec}surface specification information}
+      inf the [`Jsoo] backend. *)
 
   (** The type for OpenGL surface specification. *)
   module Gl : sig
@@ -180,20 +186,23 @@ module Surface : sig
          top-left corner of the display container is [(0,0)] and
          coordinate increase in from top to bottom and left to
          right.}
-      {- [size], the size of the surface in logical pixels.}
+      {- [size], the size of the surface in logical pixels. Consult
+         the individual backend documentation for the default value.}
       {- [kind] is the kind of surface.}
       {- [handle] is a backend dependent surface handle. In certain
          backends allows to interface [Useri] with pre-existing surfaces.}
       {- [mode] is the the surface mode.}}
 
-      {b Warning.} Currently the [size] and [pos] arguments are specified
-      in logical pixels (CSS pixels in the [`Jsoo] backend). The actual
-      raster size of the surface is in the {!raster_size} signal. Note that
-      future versions of this library will switch to
-      physical dimensions (lack of backend support is the problem at
-      the moment).  *)
+      {b Note.} Currently the [size] and [pos] arguments are
+      specified The actual raster size of the surface is in the
+      {!raster_size} signal. Note that future versions of this library
+      will switch to physical dimensions (lack of backend support is
+      the problem at the moment).  *)
 
   (** {1:surface Application Surface}
+
+      See also information about {{!Useri_jsoo.Surface.propsupdate}surface
+      properties updates} in the [`Jsoo] backend.
 
       {b Warning.} These values and functions are defined
       only after {!App.init} was called. *)
@@ -247,7 +256,8 @@ module Surface : sig
   val request_refresh : unit -> unit
   (** [request_refresh ()] has the effect of making {!refresh}
       occur some time after it was called. This function call
-      is cheap and can be abused.
+      is cheap and can be abused (can be called in a React
+      step).
 
       {b Warning.} This function may be removed from the API in
       the future. *)

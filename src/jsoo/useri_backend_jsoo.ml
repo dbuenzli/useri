@@ -346,7 +346,7 @@ module Surface = struct
 
   type surface =
     { spec : t;
-      canvas : Dom_html.canvasElement Js.t;  }
+      canvas : Dom_html.canvasElement Js.t; }
 
   let surface : surface option ref = ref None
 
@@ -435,43 +435,40 @@ module Surface = struct
   let pos, set_pos = S.create P2.o
   let raster_size, set_raster_size = S.create Size2.zero
   let size, set_size = S.create Size2.zero
+  let size_changes = E.map Time.Refresh.generate_request (S.changes size)
 
   let device_pixel_ratio =
     if Js.Optdef.test ((Js.Unsafe.coerce Dom_html.window) ## devicePixelRatio)
     then (fun () -> (Js.Unsafe.coerce Dom_html.window) ## devicePixelRatio)
     else (log_warn warn_dpr; fun () -> 1.0)
 
-  let sync_canvas_size step hidpi c =
+  let sync_canvas_size step s =
+    let hidpi = s.spec.hidpi in
     let pixel_ratio = if hidpi then device_pixel_ratio () else 1. in
-    let r = (c :> Dom_html.element Js.t) ## getBoundingClientRect () in
+    let r = (s.canvas :> Dom_html.element Js.t) ## getBoundingClientRect () in
     let w = r ## right -. r ## left in
     let h = r ## bottom -. r ## top in
     let rw = Float.int_of_round (w *. pixel_ratio) in
     let rh = Float.int_of_round (h *. pixel_ratio) in
-    c ## width <- rw;
-    c ## height <- rh;
+    s.canvas ## width <- rw;
+    s.canvas ## height <- rh;
     set_pos ~step (P2.v (r ## left) (r ## top));
     set_raster_size ~step (Size2.v (float rw) (float rh));
     set_size ~step (Size2.v w h);
     ()
 
-  let set_canvas_size step hidpi c size =
-    let to_css d = str "%dpx" d in
-    let w = Float.int_of_round (Size2.w size) in
-    let h = Float.int_of_round (Size2.h size) in
-    c ## style ## width <- Js.string (to_css w);
-    c ## style ## height <- Js.string (to_css h);
-    sync_canvas_size step hidpi c;
-    ()
-
-  let sync () = match !surface with
+  let sync_props () = match !surface with
   | None -> ()
   | Some s ->
       let step = Step.create () in
-      sync_canvas_size step s.spec.hidpi s.canvas;
+      sync_canvas_size step s;
       Step.execute step;
-      Time.Refresh.generate_request ();
       ()
+
+  let request_sync_props () =
+    (* Async to call sync_props from react steps. *)
+    ignore (Dom_html.window ## setTimeout (Js.wrap_callback sync_props, 0.));
+    ()
 
   let mode_change_cb _ _ =
     let d = Dom_html.document in
@@ -492,31 +489,33 @@ module Surface = struct
     | Some s ->
         let step = Step.create () in
         set_mode ~step (if is_full then `Fullscreen else `Windowed);
-        sync_canvas_size step s.spec.hidpi s.canvas;
+        sync_canvas_size step s;
         Step.execute step;
-        Time.Refresh.generate_request ();
         true
 
-  let init step s =
-    let c = match s.handle with
-    | Some h ->
-        let c = Handle.to_js h in
-        begin match s.size with
-        | Some size -> set_canvas_size step s.hidpi c size
-        | None -> ()
-        end;
-        c
+  let window_resize_cb _ _ = sync_props (); true
+
+  let set_canvas_css_size c size =
+    let to_css d = str "%dpx" d in
+    let w = Float.int_of_round (Size2.w size) in
+    let h = Float.int_of_round (Size2.h size) in
+    c ## style ## width <- Js.string (to_css w);
+    c ## style ## height <- Js.string (to_css h);
+    ()
+
+  let init step spec =
+    let c = match spec.handle with
+    | Some h -> Handle.to_js h
     | None ->
         let c = Dom_html.(createCanvas document) in
-        let size = match s.size with
-        | Some s -> s
-        | None -> Useri_base.Surface.default_size
-        in
         Dom.appendChild (Dom_html.document ## body) c;
-        set_canvas_size step s.hidpi c size;
         c
     in
-    begin match s.kind with
+    begin match spec.size with
+    | Some size -> set_canvas_css_size c size
+    | None -> ()
+    end;
+    begin match spec.kind with
     | `Other ->
         Ev.cb c Dom_html.Event.mousedown Mouse.down_cb;
         Ev.cb c Dom_html.Event.mouseup Mouse.up_cb;
@@ -524,14 +523,18 @@ module Surface = struct
         c ## setAttribute (Js.string "tabindex", Js.string "1");
         (*        (Js.Unsafe.coerce c) ## focus (); *)
         Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
-        surface := Some { spec = s; canvas = c }
+        Ev.cb Dom_html.window Dom_html.Event.resize window_resize_cb;
+        ()
     | `Gl _ -> invalid_arg err_no_gl
     end;
     begin match fullscreenchange () with
     | None -> ()
     | Some e -> Ev.cb Dom_html.document e mode_change_cb;
     end;
-    request_mode s.mode;
+    let s = { spec; canvas = c } in
+    surface := Some s;
+    request_mode spec.mode;
+    sync_canvas_size step s;
     ()
 
   let release ~step =
