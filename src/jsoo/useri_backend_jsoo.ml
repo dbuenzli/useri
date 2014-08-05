@@ -366,16 +366,19 @@ module Surface = struct
 
   (* Application surface *)
 
-  let canvas : Dom_html.canvasElement Js.t option ref = ref None
+  type surface =
+    { canvas : Dom_html.canvasElement Js.t }
+
+  let surface : surface option ref = ref None
 
   let update : unit -> unit = fun () -> ()
 
-  let handle () = match !canvas with
+  let handle () = match !surface with
   | None -> invalid_arg err_init
-  | Some c -> Handle.of_js c
+  | Some s -> Handle.of_js s.canvas
 
   let mode_sig, set_mode_sig = S.create (S.const `Windowed)
-  let (mode : mode signal) = S.switch ~eq:( == ) mode_sig
+  let mode = S.switch ~eq:( == ) mode_sig
   let set_mode_switch ms = set_mode_sig ms
 
   let pos, set_pos = S.create P2.o
@@ -400,7 +403,8 @@ module Surface = struct
     else if Js.Optdef.test ((Js.Unsafe.coerce c) ## mozRequestFullScreen)
     then (Js.Unsafe.coerce c) ## mozRequestFullScreen ()
     else if Js.Optdef.test ((Js.Unsafe.coerce c) ## webkitRequestFullScreen)
-    then (Js.Unsafe.coerce c) ## webkitRequestFullScreen ()
+    then (Js.Unsafe.coerce c) ## webkitRequestFullScreen
+        (Js.Unsafe.expr "Element.ALLOW_KEYBOARD_INPUT")
     else if Js.Optdef.test ((Js.Unsafe.coerce c) ## msRequestFullscreen)
     then (Js.Unsafe.coerce c) ## msRequestFullscreen ()
     else log_warn warn_no_fullscreen
@@ -417,15 +421,23 @@ module Surface = struct
     then (Js.Unsafe.coerce d) ## msExitFullscreen ()
     else log_warn warn_no_fullscreen
 
+
+  let sync () = match !surface with
+  | None -> ()
+  | Some s -> ()
+
+  let resize_cb _ e = sync (); true
+
+
   let set_mode =
-    let set mode = match !canvas with
+    let set mode = match !surface with
     | None -> ()
-    | Some c ->
+    | Some s ->
         match mode with
         | `Windowed -> exitFullscreen ()
         | `Fullscreen ->
-            requestFullscreen c;
-            (Js.Unsafe.coerce c) ## focus ();
+            requestFullscreen (Dom_html.document ## documentElement);
+            (Js.Unsafe.coerce s.canvas) ## focus ();
     in
     E.map set (S.changes mode)
 
@@ -456,7 +468,8 @@ module Surface = struct
         c ## setAttribute (Js.string "tabindex", Js.string "1");
 (*        (Js.Unsafe.coerce c) ## focus (); *)
         Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
-        canvas := Some c
+        Ev.cb Dom_html.window Dom_html.Event.resize resize_cb;
+        surface := Some { canvas = c }
     | `Gl _ -> invalid_arg err_no_gl
     end;
     set_mode_sig ~step s.mode;
@@ -468,7 +481,7 @@ module Surface = struct
     set_pos ~step P2.o;
     set_raster_size ~step Size2.zero;
     set_size ~step Size2.zero;
-    canvas := None
+    surface := None
 end
 
 (* Text *)
@@ -496,9 +509,10 @@ module Text = struct
        like in sdl. I'm not sure it's possible to integrate the scheme
        without getting Key events through the same input field. This
        needs further thinking. *)
-    match !Surface.canvas with
+    match !Surface.surface with
     | None -> log_err err_init
-    | Some canvas ->
+    | Some s ->
+        let canvas = s.Surface.canvas in
         let i = Dom_html.(createInput ~_type:(Js.string "text") document) in
         i ## style ## position <- Js.string "absolute";
         i ## style ## opacity <- Js.def (Js.string "0");

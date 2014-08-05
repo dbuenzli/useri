@@ -79,7 +79,17 @@ module Drop : sig
       {!Useri.Drop.File.prepare} a directory will result in an error. *)
 end
 
+(** Surface.
+
+    {b Note.} TODO resize events, only on window resize.
+
+*)
 module Surface : sig
+
+
+  val sync : unit -> unit
+  (** [sync ()] makes sure that the application's properties
+      are in sync. N.b. can be called in an update step. *)
 
   (** {1:handles Handle} *)
 
@@ -88,6 +98,9 @@ module Surface : sig
     val of_js : Dom_html.canvasElement Js.t -> Useri_base.Surface.handle
     val to_js : Useri_base.Surface.handle -> Dom_html.canvasElement Js.t
   end
+
+
+
 end
 
 (*---------------------------------------------------------------------------
