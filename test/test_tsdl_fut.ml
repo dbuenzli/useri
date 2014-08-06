@@ -16,9 +16,9 @@ let rec run ~until =
 
 let main () =
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
-  let mode = App.mode_switch ~init:`Windowed (Key.up `Space) in
   let size = Size2.v 600. 400. in
-  match App.init ~hidpi ~size ~mode () with
+  let surface = Surface.create ~hidpi ~size () in
+  match App.init ~surface () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->
       Test.cmdline_setup ();

@@ -23,3 +23,5 @@
 <test/*tsdl*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
 <test/*life*> : package(js_of_ocaml), package(vg), package(vg.jsoo), \
                 jsoo, weak_js
+<test/*with_vg*> : package(js_of_ocaml), package(vg), package(vg.htmlc), \
+                jsoo, weak_js

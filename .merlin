@@ -1,3 +1,3 @@
 EXT js
-PKG tsdl react gg js_of_ocaml
+PKG fut lwt tsdl react gg vg js_of_ocaml
 B _build/**

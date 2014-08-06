@@ -1,7 +1,7 @@
-test_tsdl.native
-test_tsdl_fut.native
-test_tsdl_lwt.native
-test_jsoo.js
-test_jsoo.html
-test_jsoo_fut.js
-test_jsoo_lwt.js
+#test_tsdl.native
+#test_tsdl_fut.native
+#test_tsdl_lwt.native
+#test_jsoo.js
+#test_jsoo.html
+#test_jsoo_fut.js
+#test_jsoo_lwt.js
