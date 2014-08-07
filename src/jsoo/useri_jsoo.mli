@@ -4,13 +4,15 @@
    %%NAME%% release %%VERSION%%
   ---------------------------------------------------------------------------*)
 
+open Gg
+open React
+
 (** Useri [js_of_ocaml] backend specific functions. *)
 
 (** User keyboard.
 
     Consult information about {{!get}getting keyboard events} and
-    {{!limits}limitations}.
-*)
+    {{!limits}limitations}. *)
 module Key : sig
 
 (** {1:src Keyboard event target} *)
@@ -37,7 +39,7 @@ module Key : sig
     surface it needs to have a [tabindex] attribute. If [Useri]
     creates the canvas it sets one, but don't forget to set one if you
     provide the canvas at initialization time through an
-    {{!Surface.anchor_of_canvas}anchor}. Events will only be generated
+    {{!Surface.Handle.of_js}handle}. Events will only be generated
     once the user has focused the canvas in one way or another
     (e.g. by clicking on it). The latter operation may introduce a
     selection box around the canvas, the selection box can be hidden

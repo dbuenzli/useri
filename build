@@ -45,6 +45,7 @@ action ()
                     ocamlfind ocamlc -linkpkg -g \
                      -package js_of_ocaml -package js_of_ocaml.syntax \
                      -syntax camlp4o -package gg -package react \
+                     -package vg.htmlc \
                      src/useri_base.cma  src/jsoo/useri_jsoo.cma \
                      src/useri.cma test/test.cmo test/$1.cmo -o test/$1.byte
                     js_of_ocaml +weak.js test/$1.byte

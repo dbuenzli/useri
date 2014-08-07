@@ -450,8 +450,11 @@ module Surface = struct
     let h = r ## bottom -. r ## top in
     let rw = Float.int_of_round (w *. pixel_ratio) in
     let rh = Float.int_of_round (h *. pixel_ratio) in
-    s.canvas ## width <- rw;
-    s.canvas ## height <- rh;
+    if s.canvas ## width <> rw || s.canvas ## height <> rh then begin
+      s.canvas ## width <- rw;
+      s.canvas ## height <- rh;
+      request_refresh ()
+    end;
     set_pos ~step (P2.v (r ## left) (r ## top));
     set_raster_size ~step (Size2.v (float rw) (float rh));
     set_size ~step (Size2.v w h);
