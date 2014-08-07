@@ -122,6 +122,9 @@ module Surface : sig
       element bounding box some time after it was called (can be
       called in a React step). *)
 
+  val size_mm : size2 signal
+  (** [size_mm] is the application's surface size in millimeters. *)
+
   (** {1:handles Handle} *)
 
   (** Surface handles. *)

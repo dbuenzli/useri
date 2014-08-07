@@ -435,6 +435,10 @@ module Surface = struct
   let pos, set_pos = S.create P2.o
   let raster_size, set_raster_size = S.create Size2.zero
   let size, set_size = S.create Size2.zero
+  let size_mm =
+    let to_mm = 1. /. (96. /. 2.54 /. 10.) in
+    S.map (V2.( * ) to_mm) size
+
   let size_changes = E.map Time.Refresh.generate_request (S.changes size)
 
   let device_pixel_ratio =
