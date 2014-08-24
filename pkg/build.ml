@@ -18,7 +18,7 @@ let () =
     Pkg.lib ~exts:Exts.module_library "src/useri";
     Pkg.lib ~exts:Exts.library "src/useri_top";
     Pkg.lib ~exts:Exts.library "src/useri_base";
-    Pkg.lib ~cond:tsdl ~exts:Exts.library "src/tsdl/useri_tsdl";
-    Pkg.lib ~cond:jsoo ~exts:Exts.library "src/jsoo/useri_jsoo";
+    Pkg.lib ~cond:tsdl ~exts:Exts.module_library "src/tsdl/useri_tsdl";
+    Pkg.lib ~cond:jsoo ~exts:Exts.module_library "src/jsoo/useri_jsoo";
     Pkg.doc "README.md";
     Pkg.doc "CHANGES.md"; ]
