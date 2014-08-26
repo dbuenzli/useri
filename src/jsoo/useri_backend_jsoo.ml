@@ -386,8 +386,14 @@ module Surface = struct
     else if Js.Optdef.test ((Js.Unsafe.coerce c) ## mozRequestFullScreen)
     then (Js.Unsafe.coerce c) ## mozRequestFullScreen ()
     else if Js.Optdef.test ((Js.Unsafe.coerce c) ## webkitRequestFullScreen)
-    then (Js.Unsafe.coerce c) ## webkitRequestFullScreen
-        (Js.Unsafe.expr "Element.ALLOW_KEYBOARD_INPUT")
+    then begin
+      (Js.Unsafe.coerce c) ## webkitRequestFullScreen
+        ((* The commented expression works on chrome but prevents
+            safari from going fullscreen. No features we can test. The
+            standard seems to have dropped that feature so we don't
+            use it in either case.
+            Js.Unsafe.expr "Element.ALLOW_KEYBOARD_INPUT" *));
+    end
     else if Js.Optdef.test ((Js.Unsafe.coerce c) ## msRequestFullscreen)
     then (Js.Unsafe.coerce c) ## msRequestFullscreen ()
     else log_warn warn_no_fullscreen

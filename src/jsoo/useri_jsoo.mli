@@ -69,6 +69,9 @@ module Key : sig
     in certain browsers (e.g. Safari) it is not possible to prevent
     the default action of certain key strokes.
 
+    {b Fullscreen.} Note that in general in fullscreen mode you may
+    not get keyboard events or only some of them for security reasons.
+
     {1:limits Limitations}
 
     The following limitations exist (they may be lifted in the future).
