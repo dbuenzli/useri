@@ -30,6 +30,14 @@ module Ev = struct
     let h = Dom.full_handler (fun n ev -> Js.bool (f n ev)) in
     ids := Dom.addEventListener node e h (Js.bool false) :: !ids;
     ()
+
+  let handle_capture e ~capture =
+    if not capture then true else
+    begin
+      Dom.preventDefault e;
+      Dom_html.stopPropagation e;
+      false
+    end
 end
 
 (* Time *)
@@ -202,7 +210,8 @@ module Mouse = struct
     set ~step true; send_down ~step epos;
     React.Step.execute step;
     ignore ((Js.Unsafe.coerce c) ## focus ()); (* since we prevent default *)
-    false
+    Ev.handle_capture e ~capture:true
+
 
   let up_cb c e =
     let step = Step.create () in
@@ -215,14 +224,14 @@ module Mouse = struct
     in
     set ~step false; send_up ~step epos;
     React.Step.execute step;
-    false
+    Ev.handle_capture e ~capture:true
 
   let move_cb c e =
     Dom.preventDefault e;
     let step = Step.create () in
     let _ = set_mouse_pos ~step c e in
     React.Step.execute step;
-    false
+    Ev.handle_capture e ~capture:true
 end
 
 (* Key *)
@@ -298,7 +307,8 @@ module Key = struct
     Useri_base.Key.handle_down ~step id;
     Step.execute step;
     downs := Iset.add kc !downs;
-    not (key_capture () id)
+    Ev.handle_capture e ~capture:(key_capture () id)
+
 
   let up_cb _ e =
     let kc = e ## keyCode in
@@ -307,7 +317,7 @@ module Key = struct
     Useri_base.Key.handle_up ~step id;
     Step.execute step;
     downs := Iset.remove kc !downs;
-    not (key_capture () id)
+    Ev.handle_capture e ~capture:(key_capture () id)
 
   let setup_cbs c =
     let t = match event_target () with None -> c | Some t -> t in
@@ -483,7 +493,7 @@ module Surface = struct
     ignore (Dom_html.window ## setTimeout (Js.wrap_callback sync_props, 0.));
     ()
 
-  let mode_change_cb _ _ =
+  let mode_change_cb _ e =
     let d = Dom_html.document in
     let is_full =
       if Js.Optdef.test ((Js.Unsafe.coerce d) ## fullscreenElement)
@@ -504,9 +514,11 @@ module Surface = struct
         set_mode ~step (if is_full then `Fullscreen else `Windowed);
         sync_canvas_size step s;
         Step.execute step;
-        true
+        Ev.handle_capture e ~capture:false
 
-  let window_resize_cb _ _ = sync_props (); true
+  let window_resize_cb _ e =
+    sync_props ();
+    Ev.handle_capture e ~capture:false
 
   let set_canvas_css_size c size =
     let to_css d = str "%dpx" d in
@@ -573,7 +585,7 @@ module Text = struct
     then send_input (Js.to_string ((Js.Unsafe.coerce e) ## data))
     else send_input (Js.to_string (i ## value));
     i ## value <- (Js.string "");
-    false
+    Ev.handle_capture e ~capture:true
 
   let start_text_input () =
     if true then invalid_arg "Unsupported in this backend" else
