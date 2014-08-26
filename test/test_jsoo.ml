@@ -25,17 +25,19 @@ let setup_log () =
   Sys_js.set_channel_flusher stderr add_entry;
   ()
 
-let setup_jsoo global_key =
+let setup_jsoo global_key key_capture =
   let target = (Dom_html.window :> Dom_html.eventTarget Js.t) in
   if global_key then Useri_jsoo.Key.set_event_target (Some target);
+  if key_capture then Useri_jsoo.Key.set_key_capture (fun _ -> true);
   ()
 
 let main () =
   let global_key = App.env "global-key" ~default:false bool_of_string in
+  let key_capture = App.env "key-capture" ~default:false bool_of_string in
   let hidpi = App.env "HIDPI" ~default:true bool_of_string in
   let size = Size2.v 480. 300. in
   let surface = Surface.create ~hidpi ~size ~kind:`Other () in
-  setup_jsoo global_key;
+  setup_jsoo global_key key_capture;
   match App.init ~surface () with
   | `Error e -> Printf.eprintf "%s" e; exit 1
   | `Ok () ->

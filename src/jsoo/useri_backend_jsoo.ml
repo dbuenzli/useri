@@ -276,6 +276,11 @@ module Key = struct
   let set_event_target t = event_target := t
   let event_target () = !event_target
 
+  let default_key_capture _ = false
+  let key_capture : (Useri_base.Key.id -> bool) ref = ref default_key_capture
+  let set_key_capture pred = key_capture := pred
+  let key_capture () = !key_capture
+
   module Int = struct
     type t = int
     let compare : int -> int -> int = Pervasives.compare
@@ -293,7 +298,7 @@ module Key = struct
     Useri_base.Key.handle_down ~step id;
     Step.execute step;
     downs := Iset.add kc !downs;
-    false
+    not (key_capture () id)
 
   let up_cb _ e =
     let kc = e ## keyCode in
@@ -302,7 +307,7 @@ module Key = struct
     Useri_base.Key.handle_up ~step id;
     Step.execute step;
     downs := Iset.remove kc !downs;
-    false
+    not (key_capture () id)
 
   let setup_cbs c =
     let t = match event_target () with None -> c | Some t -> t in
@@ -315,6 +320,7 @@ module Key = struct
   let release ~step =
     Useri_base.Key.release ~step;
     set_event_target None;
+    set_key_capture (default_key_capture);
     ()
 end
 
