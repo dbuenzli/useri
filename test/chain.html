@@ -21,7 +21,7 @@
                            margin: 0em;
                            padding: 0em;}
 
-    html { font-size: 1em; height:100%; width:100%; background-color: black; }
+    html { font-size: 1em; background-color: black; width:100%; height:100%; }
     body { width:100%;
            height:100%;
            color: #A0A0A0;
@@ -29,15 +29,22 @@
            line-height: 1.3125rem;
            font-family: 'Lato', sans-serif;
            font-weight: 300;
+           display: flex;
+           display: -webkit-flex;
+           display: -moz-flex;
            padding: 2.6rem;
-           display:table; }
+           -webkit-flex-direction:column;
+           -webkit-justify-content:center;
+           -moz-flex-direction:column;
+           -moz-justify-content:center;
+           flex-direction:column;
+           justify-content:center; }
 
     h1 { font-weight: 300;
          font-size: 2rem;
          line-height:2.2rem;
          height:3.5125rem;
-         text-transform: uppercase;
-         display:table-row; }
+         text-transform: uppercase; }
 
     h1 > a { font-size: 1rem; text-transform:lowercase;
              text-decoration: none; color: #666666; }
