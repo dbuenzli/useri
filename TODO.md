@@ -22,3 +22,6 @@
   http://updates.html5rocks.com/2012/07/Drag-and-drop-a-folder-onto-Chrome-now-available
   match Tsdl backend (to verify, generate one Drop.file event per directory
   entry).
+
+* Jsoo: internal rename Ev.handle_capture ~capture terminology is wrong.
+* Jsoo test fix width for mobile.

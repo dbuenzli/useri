@@ -503,6 +503,31 @@ module Mouse = struct
   let release step = ()
 end
 
+(* Touch *)
+
+module Touch = struct
+
+  type over = [ `Up | `Cancel ]
+  type t =
+    { id : int;
+      did : int;
+      pos : p2 signal * (?step:React.step -> p2 -> unit);
+      dpos : v2 event * (?step:React.step -> v2 -> unit);
+      pressure : float signal * (?step:React.step -> float -> unit);
+      over : over event * (?step:React.step -> over -> unit); }
+
+  let id t = t.id
+  let did _ = 0 (* not supported *)
+  let pos t = fst t.pos
+  let dpos t = fst t.dpos
+  let pressure _ = S.const 0. (* not supported *)
+  let over t = fst t.over
+
+  (* TODO *)
+
+  let start = E.never
+end
+
 (* Keyboard *)
 
 module Key = struct

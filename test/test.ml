@@ -84,6 +84,29 @@ let test_mouse () =
   trace_e V2.pp mname "right_up" Mouse.right_up;
   ()
 
+let test_touch () =
+  let mname = "Touch" in
+  let trace_touch t =
+    (* FIXME leaks *)
+    let touch_fun f =
+      Printf.sprintf "%s did:%d tid:%d" f (Touch.did t) (Touch.id t)
+    in
+    let pp_over ppf o =
+      pp ppf (match o with `Up -> "`Up" | `Cancel -> "`Cancel")
+    in
+    trace_s V2.pp mname (touch_fun "pos") (Touch.pos t);
+    trace_e V2.pp mname (touch_fun "dpos") (Touch.dpos t);
+    trace_s pp_float mname (touch_fun "pressure") (Touch.pressure t);
+    trace_e pp_over mname (touch_fun "over") (Touch.over t);
+  in
+  let pp_touch ppf t = pp ppf "did:%d tid:%d@ " (Touch.did t) (Touch.id t) in
+  let pp_touches ppf ts =
+    pp ppf "@[%a@]" (fun ppf ts -> List.iter (pp_touch ppf) ts) ts
+  in
+  trace_e pp_touches mname "start" Touch.start;
+  App.sink_event (E.map (fun ts -> List.iter trace_touch ts) Touch.start);
+  ()
+
 let test_key () =
   let mname = "Key" in
   trace_e Key.pp_id mname "any_down" Key.any_down;
@@ -159,10 +182,10 @@ let test_app () =
   trace_v App.pp_cpu_count mname "cpu_count" App.cpu_count;
   ()
 
-
 let test mods set_clipboard =
   let do_test m = mods = [] || List.mem m mods in
   if do_test `Mouse then test_mouse ();
+  if do_test `Touch then test_touch ();
   if do_test `Key then test_key ();
   if do_test `Text then test_text set_clipboard;
   if do_test `Drop then test_drop ();
@@ -181,6 +204,7 @@ let env_setup () =
   in
   let mods =
     env "mouse" `Mouse @@
+    env "touch" `Touch @@
     env "key" `Key @@
     env "text" `Text @@
     env "drop" `Drop @@
@@ -209,6 +233,7 @@ let cmdline_setup () =
   let pos p = raise (Arg.Bad ("don't know what to to with " ^ p)) in
   let options = [
     "-mouse", add `Mouse, " test the Mouse module";
+    "-touch", add `Touch, " test the Touch module";
     "-key", add `Key, " test the Key module";
     "-text", add `Text, " test the Text module";
     "-drop", add `Drop, " test the Drop module";
