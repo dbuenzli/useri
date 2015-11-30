@@ -7,13 +7,14 @@
 open Gg
 open React
 open Tsdl
+open Result
 
 let err_not_tsdl_file = "not a useri.tsdl file"
 let log_err msg = Useri_base.App.backend_log `Error msg
 
 let ( >>= ) x f = match x with
-| `Error _ as e -> e
-| `Ok v -> f v
+| Error _ as e -> e
+| Ok v -> f v
 
 (* Time *)
 
@@ -299,7 +300,7 @@ module Surface = struct
         Size2.v (float w) (float h)
 
     let setup_kind = function
-    | `Other -> `Ok ()
+    | `Other -> Ok ()
     | `Gl c ->
         let bool b = if b then 1 else 0 in
         let ms_buffers, ms_samples = match c.Gl.multisample with
@@ -321,7 +322,7 @@ module Surface = struct
         in
         let set a v = Sdl.gl_set_attribute a v in
         let accelerated () = match c.Gl.accelerated with
-        | None -> `Ok ()
+        | None -> Ok ()
         | Some a -> set Sdl.Gl.accelerated_visual (bool a)
         in
         set Sdl.Gl.share_with_current_context (bool true)
@@ -359,12 +360,12 @@ module Surface = struct
       >>= fun win -> Sdl.gl_create_context win
       >>= fun ctx -> Sdl.gl_make_current win ctx
       >>= fun ()  -> Sdl.gl_set_swap_interval 1
-      >>= fun ()  -> `Ok (win, ctx)
+      >>= fun ()  -> Ok (win, ctx)
 
     let destroy win ctx =
       Sdl.gl_delete_context ctx;
       Sdl.destroy_window win;
-      `Ok ()
+      Ok ()
   end
 
   let handle () = failwith "TODO"
@@ -378,7 +379,7 @@ module Surface = struct
         | `Fullscreen -> Sdl.Window.fullscreen_desktop
         in
         match Sdl.set_window_fullscreen win f with
-        | `Ok () -> () | `Error msg ->
+        | Ok () -> () | Error (`Msg msg) ->
             (* Log.err "app mode change: %s" msg *)
             (* TODO *)
             Printf.eprintf "app mode change: %s" msg
@@ -428,7 +429,7 @@ module Surface = struct
     set_pos ~step (Window.pos ());
     set_size ~step (Window.size ());
     set_raster_size ~step (Window.drawable_size ());
-    `Ok ()
+    Ok ()
 
   let show () = match !Window.win with
   | None -> ()
@@ -650,8 +651,8 @@ module Text = struct
   let sdl_clipboard_send step =
     if not (Sdl.has_clipboard_text ()) then sdl_clipboard_send ~step "" else
     match Sdl.get_clipboard_text () with
-    | `Ok c -> sdl_clipboard_send ~step c
-    | `Error e -> log_err e
+    | Ok c -> sdl_clipboard_send ~step c
+    | Error (`Msg e) -> log_err e
 
   let sdl_clipboard_update () =
     let step = React.Step.create () in
@@ -663,7 +664,7 @@ module Text = struct
   let app_clipboard =
     let set v =
       begin match Sdl.set_clipboard_text v with
-      | `Ok () -> () | `Error e -> log_err e
+      | Ok () -> () | Error (`Msg e) -> log_err e
       end;
       v
     in
@@ -693,7 +694,7 @@ module Drop = struct
     | Some f -> f
 
     let path f = to_string f
-    let prepare f k = k f (`Ok ())
+    let prepare f k = k f (Ok ())
   end
 
   let file, send_file = E.create ()
@@ -805,7 +806,7 @@ module App = struct
     Step.execute step;
     Time.Refresh.send_raw_refresh (Time.tick_now ());
     Surface.show ();
-    `Ok ()
+    Ok ()
 
   let do_event e =
     let e = match e with None -> assert false (* TODO invalid_arg *)

@@ -12,6 +12,7 @@
 open Gg
 open React
 open Useri
+open Result
 
 let setup_log () =
   let log = Dom_html.(createDiv document) in
@@ -39,8 +40,8 @@ let main () =
   let surface = Surface.create ~hidpi ~size ~kind:`Other () in
   setup_jsoo global_key key_capture;
   match App.init ~surface () with
-  | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () ->
+  | Error (`Msg m) -> Printf.eprintf "%s" m; exit 1
+  | Ok () ->
       setup_log ();
       Test.env_setup ();
       App.run ();

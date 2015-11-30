@@ -7,6 +7,7 @@
 open Gg
 open React
 open Useri
+open Result
 
 let ( >>= ) = Lwt.( >>= )
 
@@ -26,8 +27,8 @@ let main () =
   let size = Size2.v 600. 400. in
   let surface = Surface.create ~hidpi ~size () in
   match App.init ~surface () with
-  | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () ->
+  | Error (`Msg m) -> Printf.eprintf "%s" m; exit 1
+  | Ok () ->
       Test.cmdline_setup ();
       run ~until:(Lwt_react.E.next App.quit);
       App.release ();

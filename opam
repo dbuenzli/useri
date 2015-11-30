@@ -3,13 +3,13 @@ maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
 homepage: "http://erratique.ch/software/useri"
 authors: ["Daniel Bünzli <daniel.buenzl i@erratique.ch>"]
 doc: "http://erratique.ch/software/fut/doc/Fut"
-tags: [ "hci" "frp" "declarative" "input" "graphics" "html-canvas" 
+tags: [ "hci" "frp" "declarative" "input" "graphics" "html-canvas"
         "webgl" "opengl" "opengl-es" "org:erratique" ]
 license: "BSD3"
 ocaml-version: [>= "4.00.0"]
-depends: [ "ocamlfind" "gg" "react" ]
+depends: [ "ocamlfind" "gg" "react" "result" ]
 depopts: [ "tsdl" "js_of_ocaml" ]
-build: 
+build:
 [
   [ "ocaml" "pkg/git.ml" ]
   [ "ocaml" "pkg/build.ml" "native=%{ocaml-native}%"

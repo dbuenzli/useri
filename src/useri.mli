@@ -22,6 +22,7 @@
 
 open Gg
 open React
+open Result
 
 (** {1 Useri} *)
 
@@ -547,7 +548,7 @@ module Drop : sig
     (** [path f] is [f]'s file system path. *)
 
     val prepare : file ->
-      (file -> [`Ok of unit | `Error of string] -> unit) -> unit
+      (file -> (unit, [`Msg of string]) result -> unit) -> unit
     (** [prepare f k] prepares files [f] for reading, calling [k f r] whenever
         [f] is ready to be read from (e.g. with {!Pervasives.open_in}).
 
@@ -640,8 +641,7 @@ module App : sig
       {- [`Jsoo] lookups the query string of [window.location]
          for the first matching [var=value] pair.}} *)
 
-  val prefs_path : org:string -> app:string ->
-  [`Ok of string | `Error of string ]
+  val prefs_path : org:string -> app:string -> (string, [`Msg of string]) result
   (** [TODO] this should used the app name automatically.
       Unique to user and app. *)
 
@@ -660,7 +660,7 @@ module App : sig
   (** {1:lifecycle Init, run and release} *)
 
   val init : ?name:string -> ?surface:Surface.t -> unit ->
-  [ `Ok of unit | `Error of string ]
+  (unit, [`Msg of string]) result
   (** [init name surface] initialises an application named [name] (default
       derived from the executable name) with surface [surface] (defaults
       to a default {!Surface.create}.) *)

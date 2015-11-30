@@ -6,6 +6,7 @@
 
 open Gg
 open React
+open Result
 
 let str = Format.asprintf
 let log_warn msg = Useri_base.App.backend_log `Warning msg
@@ -782,12 +783,12 @@ module Drop = struct
           | Some str -> Js.to_string str
         in
         Sys_js.register_file ~name ~content;
-        k f (`Ok ());
+        k f (Ok ());
         Js._false
       in
       let onerror _ =
         let err = string_of_int (r ## error ## code) in
-        k f (`Error err); Js._false
+        k f (Error (`Msg err)); Js._false
       in
       r ## onload <- Dom.handler onload;
       r ## onerror <- Dom.handler onerror;
@@ -907,7 +908,7 @@ module App = struct
     Drop.init ();
     Step.execute step;
     Time.Refresh.generate_request ();
-    `Ok ()
+    Ok ()
 
   let run_step () = send_start (); max_float
   let run ?(until = E.never) () = send_start ()

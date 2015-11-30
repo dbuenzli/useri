@@ -7,6 +7,7 @@
 open Gg
 open React
 open Useri
+open Result
 
 let log_formatter = ref Format.std_formatter
 let log fmt = Format.fprintf !log_formatter (fmt ^^ "@\n%!")
@@ -145,8 +146,8 @@ let test_drop () =
   let read file state =
     let name = Drop.File.path file in
     match state with
-    | `Error e -> log "%s: file prepare error (%s)" name e
-    | `Ok () ->
+    | Error (`Msg m) -> log "%s: file prepare error (%s)" name m
+    | Ok () ->
         try
           if Sys.is_directory name then log "%s: directory" name else
           let ic = open_in name in

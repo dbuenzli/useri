@@ -1,5 +1,5 @@
+<**/*.{ml,mli}> : bin_annot, package(result), safe_string
 
-<**/*.{ml,mli}> : bin_annot, annot, debug
 <src> : include
 <src/jsoo> : include
 <src/tsdl> : include
@@ -21,7 +21,7 @@
                 syntax(camlp4o), base, jsoo, useri, weak_js
 <test/*tsdl*fut*> : thread, package(fut.select), package(fut.r), package(fut)
 <test/*tsdl*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
-<test/*life*> : package(js_of_ocaml), package(vg), package(vg.jsoo), \
+<test/*life*> : package(js_of_ocaml), package(vg), package(vg.htmlc), \
                 jsoo, weak_js
 <test/*chain*> : package(js_of_ocaml), package(vg.htmlc), \
                 jsoo, weak_js

@@ -12,6 +12,7 @@ open Gg
 open Vg
 open React
 open Useri
+open Result
 
 let log fmt = Format.printf (fmt ^^ "@.")
 
@@ -82,8 +83,8 @@ let setup () =
 let main () =
   let surface = Surface.create ~kind:`Other () in
   match App.init ~surface () with
-  | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () -> setup (); App.run ()
+  | Error (`Msg m) -> Printf.eprintf "%s" m; exit 1
+  | Ok () -> setup (); App.run ()
 
 let () = main ()
 

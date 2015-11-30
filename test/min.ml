@@ -18,6 +18,7 @@
 open Gg
 open React
 open Useri
+open Result
 
 let setup size =
   let s = S.value size in
@@ -31,8 +32,8 @@ let main () =
   let mode = Surface.mode_switch ~init:`Windowed (Key.up `Space) in
   let surface = Surface.create ~mode in
   match App.init ~surface () with
-  | `Error e -> Printf.eprintf "%s" e; exit 1
-  | `Ok () ->
+  | Error e -> Printf.eprintf "%s" e; exit 1
+  | Ok () ->
       App.run ~until:App.quit ();
       match App.backend_scheme with
       | `Sync -> App.release (); exit 0

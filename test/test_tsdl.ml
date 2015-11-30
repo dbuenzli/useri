@@ -7,6 +7,7 @@
 open Gg
 open React
 open Useri
+open Result
 
 let redirect_logs () = match Useri.App.launch_context with
 | `Terminal -> ()
@@ -37,8 +38,8 @@ let main () =
   let size = Size2.v 600. 400. in
   let surface = Surface.create ~hidpi ~size () in
   match App.init ~surface () with
-  | `Error e -> Test.log "%s" e; exit 1
-  | `Ok () ->
+  | Error (`Msg m) -> Test.log "%s" m; exit 1
+  | Ok () ->
       test_setup ();
       App.run ~until:App.quit ();
       App.release ();
