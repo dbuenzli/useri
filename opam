@@ -1,19 +1,21 @@
-opam-version: "1"
+opam-version: "1.2"
 maintainer: "Daniel Bünzli <daniel.buenzl i@erratique.ch>"
-homepage: "http://erratique.ch/software/useri"
 authors: ["Daniel Bünzli <daniel.buenzl i@erratique.ch>"]
-doc: "http://erratique.ch/software/fut/doc/Fut"
+homepage: "http://erratique.ch/software/useri"
+doc: "http://erratique.ch/software/useri/doc/"
+dev-repo: "http://erratique.ch/repos/useri.git"
+bug-reports: "https://github.com/dbuenzli/useri/issues"
 tags: [ "hci" "frp" "declarative" "input" "graphics" "html-canvas"
         "webgl" "opengl" "opengl-es" "org:erratique" ]
-license: "BSD3"
-ocaml-version: [>= "4.00.0"]
-depends: [ "ocamlfind" "gg" "react" "result" ]
+license: "BSD-3-Clause"
+available: [ocaml-version >= "4.00.0" ]
+depends: [ "ocamlfind" {build} "result" "gg" "react" ]
 depopts: [ "tsdl" "js_of_ocaml" ]
 build:
 [
   [ "ocaml" "pkg/git.ml" ]
   [ "ocaml" "pkg/build.ml" "native=%{ocaml-native}%"
-                           "native-dynlink=%{ocaml-native}%" # TODO fixme
+                           "native-dynlink=%{ocaml-native-dynlink}%"
                            "tsdl=%{tsdl:installed}%"
                            "jsoo=%{js_of_ocaml:installed}%" ]
 ]
