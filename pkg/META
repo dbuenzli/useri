@@ -1,10 +1,10 @@
 description = "Declarative user input for OCaml"
 version = "%%VERSION%%"
-
+requires = ""
 archive(byte) = "useri.cma"
-archive(byte, plugin) = "useri.cma"
+plugin(byte) = "useri.cma"
 archive(native) = "useri.cmxa"
-archive(native, plugin) = "useri.cmxs"
+plugin(native) = "useri.cmxs"
 exists_if = "useri.cma"
 
 # Backends
@@ -19,19 +19,20 @@ package "top" (
  version = "%%VERSION%%"
  requires = "gg react compiler-libs.toplevel"
  archive(byte) = "useri_top.cma"
- archive(byte, plugin) = "useri_top.cma"
+ plugin(byte) = "useri_top.cma"
  archive(native) = "useri_top.cmxa"
- archive(native, plugin) = "useri_top.cmxs"
+ plugin(native) = "useri_top.cmxs"
  exists_if = "useri_top.cma"
 )
 
 package "base" (
   description = "Useri's backend base"
   version = "%%VERSION%%"
+  requires = ""
   archive(byte) = "useri_base.cma"
-  archive(byte, plugin) = "useri_base.cma"
+  plugin(byte) = "useri_base.cma"
   archive(native) = "useri_base.cmxa"
-  archive(native, plugin) = "useri_base.cmxs"
+  plugin(native) = "useri_base.cmxs"
   exists_if = "useri_base.cma"
 )
 
@@ -39,11 +40,12 @@ package "tsdl" (
   description = "Useri's tsdl backend"
   version = "%%VERSION%%"
   requires = "gg react tsdl useri.base"
+  directory = "tsdl"
   archive(byte) = "useri_tsdl.cma"
-  archive(byte, plugin) = "useri_tsdl.cma"
+  plugin(byte) = "useri_tsdl.cma"
   archive(byte, toploop) += "useri.cma useri_top.cma"
   archive(native) = "useri_tsdl.cmxa"
-  archive(native, plugin) = "useri_tsdl.cmxs"
+  plugin(native) = "useri_tsdl.cmxs"
   archive(native, toploop) += "useri.cma useri_top.cmxa"
   exists_if = "useri_tsdl.cma"
 )
@@ -52,11 +54,12 @@ package "jsoo" (
   description = "Useri's js_of_ocaml backend"
   version = "%%VERSION%%"
   requires = "gg react js_of_ocaml js_of_ocaml.syntax useri.base"
+  directory = "jsoo"
   archive(byte) = "useri_jsoo.cma"
-  archive(byte, plugin) = "useri_jsoo.cma"
+  plugin(byte) = "useri_jsoo.cma"
   archive(byte, toploop) += "useri_top.cma"
   archive(native) = "useri_jsoo.cmxa"
-  archive(native, plugin) = "useri_jsoo.cmxs"
+  plugin(native) = "useri_jsoo.cmxs"
   archive(native, toploop) += "useri.cmxa useri_top.cmxa"
   exists_if = "useri_jsoo.cma"
 )

@@ -152,9 +152,9 @@ let test_drop () =
           if Sys.is_directory name then log "%s: directory" name else
           let ic = open_in name in
           let len = in_channel_length ic in
-          let s = String.create len in
+          let s = Bytes.create len in
           really_input ic s 0 len; close_in ic;
-          log "%s: contents: %S" name s
+          log "%s: contents: %S" name (Bytes.unsafe_to_string s)
         with Sys_error e -> log "%s: %s" name e
   in
   trace_e pp_file mname "file" Drop.file;

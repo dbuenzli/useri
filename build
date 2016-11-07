@@ -26,7 +26,7 @@ action ()
                     $OCAMLBUILD $1.cmx
                     cd _build
                     ocamlfind ocamlopt -linkpkg -g -package tsdl \
-                    -package gg -package react \
+                    -package gg -package react -package lwt.unix -package lwt.react \
                     src/useri_base.cmxa  src/tsdl/useri_tsdl.cmxa \
                     src/useri.cmxa test/test.cmx test/$1.cmx -o test/$1.native
                     ln -s _build/test/$1.native ../$1.native

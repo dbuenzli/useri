@@ -1,27 +1,28 @@
 <**/*.{ml,mli}> : bin_annot, package(result), safe_string
 
 <src> : include
-<src/jsoo> : include
-<src/tsdl> : include
+<src-jsoo> : include
+<src-tsdl> : include
 
-<src/*> : package(gg), package(react)
+<src/*> : package(gg react)
 <src/useri_top.*> : package(compiler-libs.toplevel)
 
-<src/tsdl/*> : package(gg), package(react), package(tsdl)
-<src/jsoo/*> : package(gg), package(react), package(js_of_ocaml), \
-               package(js_of_ocaml.syntax), syntax(camlp4o)
+<src-tsdl/*> : package(gg react tsdl)
+<src-jsoo/*> : package(gg react js_of_ocaml), \
+               package(js_of_ocaml.syntax), \
+               syntax(camlp4o)
 
 <**/*.js> : weak_js
 <test> : include
 <test/*> : package(gg), package(react)
+
 <test/min.byte> : package(js_of_ocaml), base, jsoo, useri
 <test/min.native> : package(tsdl), tsdl
+
 <test/*tsdl*> : package(tsdl), base, tsdl, useri
 <test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml.syntax), \
                 syntax(camlp4o), base, jsoo, useri, weak_js
-<test/*tsdl*fut*> : thread, package(fut.select), package(fut.r), package(fut)
-<test/*tsdl*lwt*> : package(lwt), package(lwt.unix), package(lwt.react)
-<test/*life*> : package(js_of_ocaml), package(vg), package(vg.htmlc), \
-                jsoo, weak_js
-<test/*chain*> : package(js_of_ocaml), package(vg.htmlc), \
-                jsoo, weak_js
+<test/*tsdl*fut*> : thread, package(fut.select fut.r fut)
+<test/*tsdl*lwt*> : package(lwt lwt.unix lwt.react)
+<test/*life*> : package(js_of_ocaml), package(vg,vg.htmlc), jsoo, weak_js
+<test/*chain*> : package(js_of_ocaml), package(vg,vg.htmlc), jsoo, weak_js

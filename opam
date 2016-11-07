@@ -8,14 +8,17 @@ bug-reports: "https://github.com/dbuenzli/useri/issues"
 tags: [ "hci" "frp" "declarative" "input" "graphics" "html-canvas"
         "webgl" "opengl" "opengl-es" "org:erratique" ]
 license: "BSD-3-Clause"
-available: [ocaml-version >= "4.00.0" ]
-depends: [ "ocamlfind" {build} "result" "gg" "react" ]
+available: [ocaml-version >= "4.01.0" ]
+depends: [
+  "ocamlfind" {build}
+  "ocamlbuild" {build}
+  "topkg" {build}
+  "result"
+  "gg"
+  "react" ]
 depopts: [ "tsdl" "js_of_ocaml" ]
-build:
-[
-  [ "ocaml" "pkg/git.ml" ]
-  [ "ocaml" "pkg/build.ml" "native=%{ocaml-native}%"
-                           "native-dynlink=%{ocaml-native-dynlink}%"
-                           "tsdl=%{tsdl:installed}%"
-                           "jsoo=%{js_of_ocaml:installed}%" ]
-]
+build: [[
+  "ocaml" "pkg/pkg.ml" "build"
+          "--pinned" "%{pinned}%"
+          "--with-tsdl" "%{tsdl:installed}%"
+          "--with-js_of_ocaml" "%{js_of_ocaml:installed}%" ]]
