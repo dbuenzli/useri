@@ -596,7 +596,9 @@ module Key = struct
     let m = List.fold_left add Imap.empty map in
     fun kc -> try Imap.find kc m with
     | Not_found ->
-        if kc land Sdl.K.scancode_mask > 0 then `Unknown kc else `Uchar kc
+        if kc land Sdl.K.scancode_mask > 0
+        then `Unknown kc
+        else `Uchar (Uchar.of_int kc)
 
   let sdl_down e =
     let id = id_of_keycode (Sdl.Event.(get e keyboard_keycode)) in

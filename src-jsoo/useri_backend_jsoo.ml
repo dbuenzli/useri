@@ -359,7 +359,8 @@ module Key = struct
 
   let id_of_keycode kc = match kc with
   | n when 48 <= n && n <= 57 -> `Digit (n - 48)
-  | n when 65 <= n && n <= 90 -> `Uchar (n + 32) (* map to lowercase *)
+  | n when 65 <= n && n <= 90 ->
+      `Uchar (Uchar.unsafe_of_int (n + 32)) (* map to lowercase *)
   | n when 96 <= n && n <= 105 -> `Digit (n - 96)
   | n when 112 <= n && n <= 135 -> `Function (n - 111)
   | 8 -> `Backspace

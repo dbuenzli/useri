@@ -76,10 +76,10 @@ module Key : sig
     | `Shift of [ `Left | `Right ]
     | `Space
     | `Tab
-    | `Uchar of int
+    | `Uchar of Uchar.t
     | `Unknown of int ]
 
-  val uchar : char -> [> `Uchar of int ]
+  val uchar : char -> [> `Uchar of Uchar.t ]
   val pp_id : Format.formatter -> id -> unit
 
   (** {1 Key events and signals} *)

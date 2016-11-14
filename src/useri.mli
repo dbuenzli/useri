@@ -404,7 +404,7 @@ module Key : sig
     | `Shift of [ `Left | `Right ]
     | `Space
     | `Tab
-    | `Uchar of int
+    | `Uchar of Uchar.t
     | `Unknown of int ]
   (** The type for key identifiers.
 
@@ -413,7 +413,7 @@ module Key : sig
       be inserted by depressing that key. Use {!Text} events for getting
       textual data inserted by a user. *)
 
-  val uchar : char -> [> `Uchar of int ]
+  val uchar : char -> [> `Uchar of Uchar.t ]
   (** [uchar c] is a key identifier from [c]. *)
 
   val pp_id : Format.formatter -> id -> unit

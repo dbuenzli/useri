@@ -103,10 +103,10 @@ module Key = struct
     | `Shift of [ `Left | `Right ]
     | `Space
     | `Tab
-    | `Uchar of int
+    | `Uchar of Uchar.t
     | `Unknown of int ]
 
-  let uchar u = `Uchar (Char.code u)
+  let uchar u = `Uchar (Uchar.of_char u)
 
   let pp_id ppf id =
     let dir_to_string = function
@@ -129,7 +129,7 @@ module Key = struct
     | `Shift dir -> pp ppf "shift_%s" (dir_to_string dir)
     | `Space -> pp ppf "space"
     | `Tab -> pp ppf "tab"
-    | `Uchar u -> pp ppf "U+%04X" u
+    | `Uchar u -> pp ppf "%a" Uchar.dump u
     | `Unknown u -> pp ppf "unknown (%X)" u
     end
 
