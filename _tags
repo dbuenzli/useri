@@ -1,4 +1,4 @@
-<**/*.{ml,mli}> : bin_annot, package(result), safe_string, package(uchar)
+<**/*.{ml,mli}> : bin_annot, safe_string, package(result), package(uchar)
 
 <src> : include
 <src-jsoo> : include
@@ -9,8 +9,7 @@
 
 <src-tsdl/*> : package(gg react tsdl)
 <src-jsoo/*> : package(gg react js_of_ocaml), \
-               package(js_of_ocaml.syntax), \
-               syntax(camlp4o)
+               package(js_of_ocaml.ppx)
 
 <**/*.js> : weak_js
 <test> : include
@@ -20,8 +19,8 @@
 <test/min.native> : package(tsdl), tsdl
 
 <test/*tsdl*> : package(tsdl), base, tsdl, useri
-<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml.syntax), \
-                syntax(camlp4o), base, jsoo, useri, weak_js
+<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml.ppx), \
+                base, jsoo, useri, weak_js
 <test/*tsdl*fut*> : thread, package(fut.select fut.r fut)
 <test/*tsdl*lwt*> : package(lwt lwt.unix lwt.react)
 <test/*life*> : package(js_of_ocaml), package(vg,vg.htmlc), jsoo, weak_js

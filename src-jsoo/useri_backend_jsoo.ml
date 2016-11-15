@@ -63,15 +63,15 @@ module Time = struct
   (* Passing time *)
 
   let tick_now =
-    let date_now () = (jsnew Js.date_now () ## getTime ()) /. 1000. in
+    let date_now () = ((new%js Js.date_now) ## getTime) /. 1000. in
     let perf_now () =
-      (Js.Unsafe.coerce Dom_html.window) ## performance ## now () /. 1000.
+      (Js.Unsafe.coerce Dom_html.window) ##. performance ## now /. 1000.
     in
-    let perf = (Js.Unsafe.coerce Dom_html.window) ## performance in
+    let perf = (Js.Unsafe.coerce Dom_html.window) ##. performance in
     match Js.Optdef.to_option perf with
     | None -> warn_time (); date_now
     | Some p ->
-        match (Js.Unsafe.coerce p) ## now with
+        match (Js.Unsafe.coerce p) ##. now with
         | None -> warn_time (); date_now
         | Some n -> perf_now
 
@@ -82,7 +82,7 @@ module Time = struct
     let start = tick_now () in
     let action () = send_e (tick_now () -. start) in
     let ms = span *. 1000. in
-    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
+    ignore (Dom_html.window ## (setTimeout (Js.wrap_callback action) ms));
     e
 
   (* Timing animation *)
@@ -197,11 +197,11 @@ module Mouse = struct
   let right_up, send_right_up = E.create ()
 
   let event_mouse_pos c e =
-    let r = (c :> Dom_html.element Js.t) ## getBoundingClientRect () in
-    let x = (float (e ## clientX)) -. r ## left in
-    let y = (float (e ## clientY)) -. r ## top in
-    let nx = x /. (r ## right -. r ## left) in
-    let ny = 1. -. (y /. (r ## bottom -. r ## top)) in
+    let r = ((c :> Dom_html.element Js.t)) ## getBoundingClientRect in
+    let x = (float (e ##. clientX)) -. r ##. left in
+    let y = (float (e ##. clientY)) -. r ##. top in
+    let nx = x /. (r ##. right -. r ##. left) in
+    let ny = 1. -. (y /. (r ##. bottom -. r ##. top)) in
     V2.v nx ny
 
   let set_mouse_pos ~step c e =
@@ -213,7 +213,7 @@ module Mouse = struct
   let down_cb c e =
     let step = Step.create () in
     let epos = set_mouse_pos ~step c e in
-    let set, send_down = match Js.Optdef.to_option (e ## which) with
+    let set, send_down = match Js.Optdef.to_option (e ##. which) with
     | Some Dom_html.Left_button -> set_left, send_left_down
     | Some Dom_html.Middle_button -> set_middle, send_middle_down
     | Some Dom_html.Right_button -> set_right, send_right_down
@@ -221,13 +221,13 @@ module Mouse = struct
     in
     set ~step true; send_down ~step epos;
     React.Step.execute step;
-    ignore ((Js.Unsafe.coerce c) ## focus ()); (* since we prevent default *)
+    ignore (((Js.Unsafe.coerce c)) ## focus); (* since we prevent default *)
     Ev.handle_capture e ~capture:true
 
   let up_cb c e =
     let step = Step.create () in
     let epos = set_mouse_pos ~step c e in
-    let set, send_up = match Js.Optdef.to_option (e ## which) with
+    let set, send_up = match Js.Optdef.to_option (e ##. which) with
     | Some Dom_html.Left_button -> set_left, send_left_up
     | Some Dom_html.Middle_button -> set_middle, send_middle_up
     | Some Dom_html.Right_button -> set_right, send_right_up
@@ -249,15 +249,15 @@ end
 
 module Touch = struct
 
-  let js_changed_touches e = (Js.Unsafe.coerce e) ## changedTouches
+  let js_changed_touches e = (Js.Unsafe.coerce e) ##. changedTouches
   let js_changed_touch changed i = Js.Unsafe.get changed i
-  let js_touch_id js_t = (Js.Unsafe.coerce js_t) ## identifier
+  let js_touch_id js_t = (Js.Unsafe.coerce js_t) ##. identifier
   let js_touch_pos c js_t =
-    let r = (c :> Dom_html.element Js.t) ## getBoundingClientRect () in
-    let x = (float ((Js.Unsafe.coerce js_t) ## clientX)) -. r ## left in
-    let y = (float ((Js.Unsafe.coerce js_t) ## clientY)) -. r ## top in
-    let nx = x /. (r ## right -. r ## left) in
-    let ny = 1. -. (y /. (r ## bottom -. r ## top)) in
+    let r = ((c :> Dom_html.element Js.t)) ## getBoundingClientRect in
+    let x = (float ((Js.Unsafe.coerce js_t) ##. clientX)) -. r ##. left in
+    let y = (float ((Js.Unsafe.coerce js_t) ##. clientY)) -. r ##. top in
+    let nx = x /. (r ##. right -. r ##. left) in
+    let ny = 1. -. (y /. (r ##. bottom -. r ##. top)) in
     V2.v nx ny
 
   type over = [ `Up | `Cancel ]
@@ -296,7 +296,7 @@ module Touch = struct
   let start_cb c e =
     let changed = js_changed_touches e in
     let started = ref [] in
-    for i = 0 to changed ## length - 1 do
+    for i = 0 to changed ##. length - 1 do
       started := touch_create c (js_changed_touch changed i) :: !started
     done;
     send_start !started;
@@ -306,7 +306,7 @@ module Touch = struct
     let step = React.Step.create () in
     let sstep = Some step in
     let changed = js_changed_touches e in
-    for i = 0 to changed ## length - 1 do
+    for i = 0 to changed ##. length - 1 do
       try
         let js_t = js_changed_touch changed i in
         let t = Imap.find (js_touch_id js_t) !active in
@@ -320,7 +320,7 @@ module Touch = struct
     let step = React.Step.create () in
     let sstep = Some step in
     let changed = js_changed_touches e in
-    for i = 0 to changed ## length - 1 do
+    for i = 0 to changed ##. length - 1 do
       try
         let js_t = js_changed_touch changed i in
         let t = Imap.find (js_touch_id js_t) !active in
@@ -396,7 +396,7 @@ module Key = struct
   let downs = ref Iset.empty (* to suppress key repeat *)
 
   let down_cb _ e =
-    let kc = e ## keyCode in
+    let kc = e ##. keyCode in
     if Iset.mem kc !downs then false else
     let id = id_of_keycode kc in
     let step = Step.create () in
@@ -407,7 +407,7 @@ module Key = struct
 
 
   let up_cb _ e =
-    let kc = e ## keyCode in
+    let kc = e ##. keyCode in
     let id = id_of_keycode kc in
     let step = Step.create () in
     Useri_base.Key.handle_up ~step id;
@@ -465,45 +465,40 @@ module Surface = struct
   (* Surface mode *)
 
   let fullscreenchange () =
-    let d = Dom_html.document ## documentElement in
-    if Js.Optdef.test ((Js.Unsafe.coerce d) ## requestFullscreen)
+    let d = Dom_html.document ##. documentElement in
+    if Js.Optdef.test ((Js.Unsafe.coerce d) ##. requestFullscreen)
     then Some (Dom.Event.make "fullscreenchange")
-    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## mozRequestFullScreen)
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. mozRequestFullScreen)
     then Some (Dom.Event.make "mozfullscreenchange")
-    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## webkitRequestFullScreen)
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. webkitRequestFullScreen)
     then Some (Dom.Event.make "webkitfullscreenchange")
-    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## msRequestFullscreen)
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. msRequestFullscreen)
     then Some (Dom.Event.make "msfullscreenchange")
     else None
 
   let requestFullscreen c =
-    if Js.Optdef.test ((Js.Unsafe.coerce c) ## requestFullscreen)
-    then (Js.Unsafe.coerce c) ## requestFullscreen ()
-    else if Js.Optdef.test ((Js.Unsafe.coerce c) ## mozRequestFullScreen)
-    then (Js.Unsafe.coerce c) ## mozRequestFullScreen ()
-    else if Js.Optdef.test ((Js.Unsafe.coerce c) ## webkitRequestFullScreen)
+    if Js.Optdef.test ((Js.Unsafe.coerce c) ##. requestFullscreen)
+    then ((Js.Unsafe.coerce c)) ## requestFullscreen
+    else if Js.Optdef.test ((Js.Unsafe.coerce c) ##. mozRequestFullScreen)
+    then ((Js.Unsafe.coerce c)) ## mozRequestFullScreen
+    else if Js.Optdef.test ((Js.Unsafe.coerce c) ##. webkitRequestFullScreen)
     then begin
-      (Js.Unsafe.coerce c) ## webkitRequestFullScreen
-        ((* The commented expression works on chrome but prevents
-            safari from going fullscreen. No features we can test. The
-            standard seems to have dropped that feature so we don't
-            use it in either case.
-            Js.Unsafe.expr "Element.ALLOW_KEYBOARD_INPUT" *));
+      ((Js.Unsafe.coerce c)) ## webkitRequestFullScreen;
     end
-    else if Js.Optdef.test ((Js.Unsafe.coerce c) ## msRequestFullscreen)
-    then (Js.Unsafe.coerce c) ## msRequestFullscreen ()
+    else if Js.Optdef.test ((Js.Unsafe.coerce c) ##. msRequestFullscreen)
+    then ((Js.Unsafe.coerce c)) ## msRequestFullscreen
     else log_warn warn_no_fullscreen
 
   let exitFullscreen () =
     let d = Dom_html.document in
-    if Js.Optdef.test ((Js.Unsafe.coerce d) ## exitFullscreen)
-    then (Js.Unsafe.coerce d) ## exitFullscreen ()
-    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## mozCancelFullScreen)
-    then (Js.Unsafe.coerce d) ## mozCancelFullScreen ()
-    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## webkitCancelFullScreen)
-    then (Js.Unsafe.coerce Dom_html.document) ## webkitCancelFullScreen ()
-    else if Js.Optdef.test ((Js.Unsafe.coerce d) ## msExitFullscreen)
-    then (Js.Unsafe.coerce d) ## msExitFullscreen ()
+    if Js.Optdef.test ((Js.Unsafe.coerce d) ##. exitFullscreen)
+    then ((Js.Unsafe.coerce d)) ## exitFullscreen
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. mozCancelFullScreen)
+    then ((Js.Unsafe.coerce d)) ## mozCancelFullScreen
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. webkitCancelFullScreen)
+    then ((Js.Unsafe.coerce Dom_html.document)) ## webkitCancelFullScreen
+    else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. msExitFullscreen)
+    then ((Js.Unsafe.coerce d)) ## msExitFullscreen
     else log_warn warn_no_fullscreen
 
   let request_mode mode = match !surface with
@@ -511,7 +506,7 @@ module Surface = struct
   | Some s ->
       match mode with
       | `Windowed -> exitFullscreen ()
-      | `Fullscreen -> requestFullscreen (Dom_html.document## documentElement)
+      | `Fullscreen -> requestFullscreen (Dom_html.document##. documentElement)
 
   let (mode_setter : mode event event), set_mode_setter = E.create ()
   let mode_setter = E.switch E.never mode_setter
@@ -560,24 +555,24 @@ module Surface = struct
   let size_changes = E.map Time.Refresh.generate_request (S.changes size)
 
   let device_pixel_ratio =
-    if Js.Optdef.test ((Js.Unsafe.coerce Dom_html.window) ## devicePixelRatio)
-    then (fun () -> (Js.Unsafe.coerce Dom_html.window) ## devicePixelRatio)
+    if Js.Optdef.test ((Js.Unsafe.coerce Dom_html.window) ##. devicePixelRatio)
+    then (fun () -> (Js.Unsafe.coerce Dom_html.window) ##. devicePixelRatio)
     else (log_warn warn_dpr; fun () -> 1.0)
 
   let sync_canvas_size step s =
     let hidpi = s.spec.hidpi in
     let pixel_ratio = if hidpi then device_pixel_ratio () else 1. in
-    let r = (s.canvas :> Dom_html.element Js.t) ## getBoundingClientRect () in
-    let w = r ## right -. r ## left in
-    let h = r ## bottom -. r ## top in
+    let r = ((s.canvas :> Dom_html.element Js.t)) ## getBoundingClientRect in
+    let w = r ##. right -. r ##. left in
+    let h = r ##. bottom -. r ##. top in
     let rw = Float.int_of_round (w *. pixel_ratio) in
     let rh = Float.int_of_round (h *. pixel_ratio) in
-    if s.canvas ## width <> rw || s.canvas ## height <> rh then begin
-      s.canvas ## width <- rw;
-      s.canvas ## height <- rh;
+    if s.canvas ##. width <> rw || s.canvas ##. height <> rh then begin
+      s.canvas ##. width := rw;
+      s.canvas ##. height := rh;
       request_refresh ()
     end;
-    set_pos ~step (P2.v (r ## left) (r ## top));
+    set_pos ~step (P2.v (r ##. left) (r ##. top));
     set_raster_size ~step (Size2.v (float rw) (float rh));
     set_size ~step (Size2.v w h);
     ()
@@ -592,21 +587,21 @@ module Surface = struct
 
   let request_sync_props () =
     (* Async to call sync_props from react steps. *)
-    ignore (Dom_html.window ## setTimeout (Js.wrap_callback sync_props, 0.));
+    ignore (Dom_html.window ## (setTimeout (Js.wrap_callback sync_props) (0.)));
     ()
 
   let mode_change_cb _ e =
     let d = Dom_html.document in
     let is_full =
-      if Js.Optdef.test ((Js.Unsafe.coerce d) ## fullscreenElement)
-      then Js.Opt.test ((Js.Unsafe.coerce d) ## fullscreenElement)
-      else if Js.Optdef.test ((Js.Unsafe.coerce d) ## mozFullScreenElement)
-      then Js.Opt.test ((Js.Unsafe.coerce d) ## mozFullScreenElement)
-      else if Js.Optdef.test ((Js.Unsafe.coerce d) ##
+      if Js.Optdef.test ((Js.Unsafe.coerce d) ##. fullscreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ##. fullscreenElement)
+      else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. mozFullScreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ##. mozFullScreenElement)
+      else if Js.Optdef.test ((Js.Unsafe.coerce d) ##.
                                 webkitCurrentFullScreenElement)
-      then Js.Opt.test ((Js.Unsafe.coerce d) ## webkitCurrentFullScreenElement)
-      else if Js.Optdef.test ((Js.Unsafe.coerce d) ## msFullscreenElement)
-      then Js.Opt.test ((Js.Unsafe.coerce d) ## msFullscreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ##. webkitCurrentFullScreenElement)
+      else if Js.Optdef.test ((Js.Unsafe.coerce d) ##. msFullscreenElement)
+      then Js.Opt.test ((Js.Unsafe.coerce d) ##. msFullscreenElement)
       else false
     in
     match !surface with
@@ -626,8 +621,8 @@ module Surface = struct
     let to_css d = str "%dpx" d in
     let w = Float.int_of_round (Size2.w size) in
     let h = Float.int_of_round (Size2.h size) in
-    c ## style ## width <- Js.string (to_css w);
-    c ## style ## height <- Js.string (to_css h);
+    c ##. style ##. width := Js.string (to_css w);
+    c ##. style ##. height := Js.string (to_css h);
     ()
 
   let init step spec =
@@ -635,7 +630,7 @@ module Surface = struct
     | Some h -> Handle.to_js h
     | None ->
         let c = Dom_html.(createCanvas document) in
-        Dom.appendChild (Dom_html.document ## body) c;
+        Dom.appendChild (Dom_html.document ##. body) c;
         c
     in
     begin match spec.size with
@@ -651,7 +646,7 @@ module Surface = struct
         Ev.cb c (Dom.Event.make "touchmove") Touch.move_cb;
         Ev.cb c (Dom.Event.make "touchcancel") Touch.cancel_cb;
         Ev.cb c (Dom.Event.make "touchend") Touch.end_cb;
-        c ## setAttribute (Js.string "tabindex", Js.string "1");
+        c ## (setAttribute (Js.string "tabindex") (Js.string "1"));
         (*        (Js.Unsafe.coerce c) ## focus (); *)
         Key.setup_cbs (c :> Dom_html.eventTarget Js.t);
         Ev.cb Dom_html.window Dom_html.Event.resize window_resize_cb;
@@ -687,10 +682,10 @@ module Text = struct
 
   let hidden_input : Dom_html.inputElement Js.t option ref = ref None
   let input_cb i e =
-    if (Js.Optdef.test ((Js.Unsafe.coerce e) ## data))
-    then send_input (Js.to_string ((Js.Unsafe.coerce e) ## data))
-    else send_input (Js.to_string (i ## value));
-    i ## value <- (Js.string "");
+    if (Js.Optdef.test ((Js.Unsafe.coerce e) ##. data))
+    then send_input (Js.to_string ((Js.Unsafe.coerce e) ##. data))
+    else send_input (Js.to_string (i ##. value));
+    i ##. value := (Js.string "");
     Ev.handle_capture e ~capture:true
 
   let start_text_input () =
@@ -706,22 +701,22 @@ module Text = struct
     | Some s ->
         let canvas = s.Surface.canvas in
         let i = Dom_html.(createInput ~_type:(Js.string "text") document) in
-        i ## style ## position <- Js.string "absolute";
-        i ## style ## opacity <- Js.def (Js.string "0");
-        i ## style ## pointerEvents <- Js.string "none";
-        i ## style ## zIndex <- Js.string "0";
+        i ##. style ##. position := Js.string "absolute";
+        i ##. style ##. opacity := Js.def (Js.string "0");
+        i ##. style ##. pointerEvents := Js.string "none";
+        i ##. style ##. zIndex := Js.string "0";
         let e =
           if Js.Optdef.test ((Js.Unsafe.variable "window.TextEvent"))
           then (Dom.Event.make "textInput")
           else (Dom_html.Event.input)
         in
         Ev.cb i e input_cb;
-        match Js.Opt.to_option ((canvas :> Dom.node Js.t) ## parentNode)
+        match Js.Opt.to_option ((canvas :> Dom.node Js.t) ##. parentNode)
         with
         | None -> log_err "canvas has no parent"
         | Some p ->
             Dom.insertBefore p i (Js.Opt.return canvas);
-            ignore ((Js.Unsafe.coerce i) ## focus ());
+            ignore (((Js.Unsafe.coerce i)) ## focus);
             hidden_input := Some (i :> Dom_html.inputElement Js.t);
             ()
 
@@ -731,9 +726,9 @@ module Text = struct
     | None -> ()
     | Some i ->
         hidden_input := None;
-        match Js.Opt.to_option ((i :> Dom.node Js.t) ## parentNode) with
+        match Js.Opt.to_option ((i :> Dom.node Js.t) ##. parentNode) with
         | None -> ()
-        | Some p -> ignore (p ## removeChild ((i :> Dom.node Js.t)))
+        | Some p -> ignore (p ## (removeChild ((i :> Dom.node Js.t))))
 
 
   let input_enabled = ref (S.const ())
@@ -772,14 +767,14 @@ module Drop = struct
     | None -> invalid_arg err_not_jsoo_file
     | Some f -> f
 
-    let path f = Js.to_string ((to_js f) ## name)
+    let path f = Js.to_string ((to_js f) ##. name)
     let prepare f k =
       let f_js = to_js f in
-      let r = jsnew File.fileReader () in
+      let r = new%js File.fileReader in
       let onload _ =
-        let name = Js.to_string (f_js ## name) in
+        let name = Js.to_string (f_js ##. name) in
         let content =
-          match Js.Opt.to_option (File.CoerceTo.string (r ## result)) with
+          match Js.Opt.to_option (File.CoerceTo.string (r ##. result)) with
           | None -> assert false
           | Some str -> Js.to_string str
         in
@@ -788,12 +783,12 @@ module Drop = struct
         Js._false
       in
       let onerror _ =
-        let err = string_of_int (r ## error ## code) in
+        let err = string_of_int (r ##. error ##. code) in
         k f (Error (`Msg err)); Js._false
       in
-      r ## onload <- Dom.handler onload;
-      r ## onerror <- Dom.handler onerror;
-      r ## readAsBinaryString (f_js);
+      r ##. onload := Dom.handler onload;
+      r ##. onerror := Dom.handler onerror;
+      r ## (readAsBinaryString f_js);
       ()
   end
 
@@ -802,9 +797,9 @@ module Drop = struct
 
   let drop _ e =
     Dom.preventDefault e;
-    let files = e ## dataTransfer ## files in
-    for i = 0 to files ## length - 1 do
-      match Js.Opt.to_option (files ## item(i)) with
+    let files = e ##. dataTransfer ##. files in
+    for i = 0 to files ##. length - 1 do
+      match Js.Opt.to_option (files ## (item i)) with
       | None -> assert false
       | Some file -> send_file (File.inj file);
     done;
@@ -812,9 +807,9 @@ module Drop = struct
 
   let dd_support () =
     let d = Dom_html.(createDiv document) in
-    Js.Optdef.test ((Js.Unsafe.coerce d) ## ondragenter) &&
-    Js.Optdef.test ((Js.Unsafe.coerce d) ## ondragover) &&
-    Js.Optdef.test ((Js.Unsafe.coerce d) ## ondrop)
+    Js.Optdef.test ((Js.Unsafe.coerce d) ##. ondragenter) &&
+    Js.Optdef.test ((Js.Unsafe.coerce d) ##. ondragover) &&
+    Js.Optdef.test ((Js.Unsafe.coerce d) ##. ondrop)
 
   let init () =
     if not (dd_support ()) then warn_drag () else
@@ -842,14 +837,14 @@ module Human = struct
     if delay = 0. then () else
     let action = feel_action feel set_feel in
     let ms = delay *. 1000. in
-    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
+    ignore (Dom_html.window ## (setTimeout (Js.wrap_callback action) ms));
     ()
 
   let feel () =
     let feel, set_feel = S.create `Interacting in
     let action = feel_action feel set_feel in
     let ms = interrupted *. 1000. in
-    ignore (Dom_html.window ## setTimeout (Js.wrap_callback action, ms));
+    ignore (Dom_html.window ## (setTimeout (Js.wrap_callback action) ms));
     feel
 
   let touch_target_size = Useri_base.Human.touch_target_size
@@ -932,7 +927,7 @@ module App = struct
 
   (* Platform and backend *)
 
-  let platform = Js.to_string (Dom_html.window ## navigator ## platform)
+  let platform = Js.to_string (Dom_html.window ##. navigator ##. platform)
 
   type backend = Useri_base.App.backend
   let backend = `Jsoo
@@ -947,8 +942,8 @@ module App = struct
 
   type cpu_count = Useri_base.App.cpu_count
   let cpu_count =
-    let n = Dom_html.window ## navigator in
-    match Js.Optdef.to_option ((Js.Unsafe.coerce n) ## hardwareConcurrency)
+    let n = Dom_html.window ##. navigator in
+    match Js.Optdef.to_option ((Js.Unsafe.coerce n) ##. hardwareConcurrency)
     with None -> `Unknown | Some c -> `Known c
 
   let pp_cpu_count = Useri_base.App.pp_cpu_count
