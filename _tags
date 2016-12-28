@@ -24,6 +24,6 @@
 <test/*tsdl*lwt*> : package(lwt lwt.unix lwt.react)
 
 <test/*life*> : package(js_of_ocaml), package(js_of_ocaml.weak), \
-                package(vg,vg.htmlc), jsoo, weak_js
+                package(vg,vg.htmlc), jsoo
 <test/*chain*> : package(js_of_ocaml), package(js_of_ocaml.weak), \
-                 package(vg,vg.htmlc), jsoo, weak_js
+                 package(vg,vg.htmlc), jsoo

@@ -53,7 +53,7 @@ package "tsdl" (
 package "jsoo" (
   description = "Useri's js_of_ocaml backend"
   version = "%%VERSION%%"
-  requires = "gg react js_of_ocaml js_of_ocaml.syntax useri.base"
+  requires = "gg react js_of_ocaml js_of_ocaml.weak useri.base"
   directory = "jsoo"
   archive(byte) = "useri_jsoo.cma"
   plugin(byte) = "useri_jsoo.cma"
