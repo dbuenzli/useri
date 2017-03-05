@@ -129,7 +129,7 @@ module Key = struct
     | `Shift dir -> pp ppf "shift_%s" (dir_to_string dir)
     | `Space -> pp ppf "space"
     | `Tab -> pp ppf "tab"
-    | `Uchar u -> pp ppf "%a" Uchar.dump u
+    | `Uchar u -> pp ppf "%04X" (Uchar.to_int u)
     | `Unknown u -> pp ppf "unknown (%X)" u
     end
 
