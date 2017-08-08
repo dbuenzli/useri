@@ -772,13 +772,13 @@ module Drop = struct
       let f_js = to_js f in
       let r = new%js File.fileReader in
       let onload _ =
-        let name = Js.to_string (f_js ##. name) in
-        let content =
+        let path = Js.to_string (f_js ##. name) in
+        let content ~prefix:_ ~path:_ =
           match Js.Opt.to_option (File.CoerceTo.string (r ##. result)) with
           | None -> assert false
-          | Some str -> Js.to_string str
+          | Some str -> Some (Js.to_string str)
         in
-        Sys_js.register_file ~name ~content;
+        Sys_js.mount ~path content;
         k f (Ok ());
         Js._false
       in
