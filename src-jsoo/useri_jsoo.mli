@@ -6,6 +6,7 @@
 
 (** Useri [js_of_ocaml] backend specific functions. *)
 
+open Js_of_ocaml
 open Gg
 open React
 

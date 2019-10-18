@@ -4,9 +4,9 @@
    %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
+open Js_of_ocaml
 open Gg
 open React
-open Result
 
 let str = Format.asprintf
 let log_warn msg = Useri_base.App.backend_log `Warning msg
@@ -26,7 +26,7 @@ let err_tid = "Unknown touch id"
 
 module Int = struct
   type t = int
-  let compare : int -> int -> int = Pervasives.compare
+  let compare : int -> int -> int = compare
 end
 
 module Iset = Set.Make (Int)

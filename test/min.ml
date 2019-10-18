@@ -18,7 +18,6 @@
 open Gg
 open React
 open Useri
-open Result
 
 let setup size =
   let s = S.value size in

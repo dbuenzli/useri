@@ -22,7 +22,6 @@
 
 open Gg
 open React
-open Result
 
 (** {1 Useri} *)
 
@@ -550,7 +549,7 @@ module Drop : sig
     val prepare : file ->
       (file -> (unit, [`Msg of string]) result -> unit) -> unit
     (** [prepare f k] prepares files [f] for reading, calling [k f r] whenever
-        [f] is ready to be read from (e.g. with {!Pervasives.open_in}).
+        [f] is ready to be read from (e.g. with {!open_in}).
 
         This is mainly used to hide the upload of the file in
         [js_of_ocaml]'s {{!Sys_js}pseudo file system} (e.g. on the

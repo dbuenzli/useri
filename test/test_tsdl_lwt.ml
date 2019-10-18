@@ -7,7 +7,6 @@
 open Gg
 open React
 open Useri
-open Result
 
 let ( >>= ) = Lwt.( >>= )
 

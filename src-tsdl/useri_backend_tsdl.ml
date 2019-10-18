@@ -7,7 +7,6 @@
 open Gg
 open React
 open Tsdl
-open Result
 
 let err_not_tsdl_file = "not a useri.tsdl file"
 let log_err msg = Useri_base.App.backend_log `Error msg
@@ -550,7 +549,7 @@ module Key = struct
 
   module Int = struct
     type t = int
-    let compare : int -> int -> int = Pervasives.compare
+    let compare : int -> int -> int = compare
   end
 
   let id_of_keycode =

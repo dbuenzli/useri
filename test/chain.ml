@@ -12,7 +12,6 @@ open Gg
 open Vg
 open React
 open Useri
-open Result
 
 let log fmt = Format.printf (fmt ^^ "@.")
 
@@ -51,8 +50,8 @@ end = struct
     let rec segs acc start = function
     | [] -> acc
     | pt :: pts ->
-        let p = P.(empty >> sub start >> line pt) in
-        let acc' = I.(acc >> blend @@ cut ~area p color) in
+        let p = P.(empty |> sub start |> line pt) in
+        let acc' = I.(acc |> blend @@ cut ~area p color) in
         segs acc' pt pts
     in
     segs I.void (List.hd chain) (List.tl chain)

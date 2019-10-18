@@ -7,7 +7,6 @@
 open Gg
 open React
 open Useri
-open Result
 
 let log_formatter = ref Format.std_formatter
 let log fmt = Format.fprintf !log_formatter (fmt ^^ "@\n%!")

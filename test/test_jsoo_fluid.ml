@@ -9,10 +9,10 @@
    Use the query string to enable and disable modules, e.g. add
    ?key=true to only get Key module events and signals. *)
 
+open Js_of_ocaml
 open Gg
 open React
 open Useri
-open Result
 
 let setup_log () =
   let log = Dom_html.(createDiv document) in

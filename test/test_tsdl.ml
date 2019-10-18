@@ -7,7 +7,6 @@
 open Gg
 open React
 open Useri
-open Result
 
 let redirect_logs () = match Useri.App.launch_context with
 | `Terminal -> ()

@@ -7,7 +7,6 @@
 open Gg
 open React
 open Useri
-open Result
 
 let rec run ~until =
   let timeout = App.run_step () in

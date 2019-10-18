@@ -10,7 +10,8 @@ let build =
   let cmd c os files =
     let jsoo_args = Cmd.(v "-plugin-tag" % "package(js_of_ocaml.ocamlbuild)") in
     let jsoo = Cmd.(on (Conf.value c jsoo) jsoo_args) in
-    OS.Cmd.run @@ Cmd.(Pkg.build_cmd c os %% jsoo %% of_list files)
+    let cflags = Cmd.(v "-cflags" % "-no-keep-locs") in
+    OS.Cmd.run @@ Cmd.(Pkg.build_cmd c os %% cflags %% jsoo %% of_list files)
   in
   Pkg.build ~cmd ()
 

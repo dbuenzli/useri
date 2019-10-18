@@ -1,4 +1,4 @@
-<**/*.{ml,mli}> : bin_annot, safe_string, package(result), package(uchar)
+<**/*.{ml,mli}> : bin_annot, safe_string
 
 <src> : include
 <src-jsoo> : include

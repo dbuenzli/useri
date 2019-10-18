@@ -267,7 +267,7 @@ module App = struct
       try Filename.chop_extension base with
       | Invalid_argument _ (* this API is pathetic *) -> base
     in
-    String.capitalize name
+    String.capitalize_ascii name
 
   (* Launch context *)
 
