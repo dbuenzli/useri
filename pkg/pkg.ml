@@ -27,8 +27,8 @@ let () =
        Pkg.test ~run:false ~cond:tsdl "test/test_tsdl_fut";
        Pkg.test ~run:false ~cond:tsdl "test/test_tsdl_lwt";
        Pkg.test ~run:false ~cond:tsdl "test/min";
-       jsoo_test ~cond:jsoo "test/min"; *)
+       jsoo_test ~cond:jsoo "test/min";
        jsoo_test ~cond:jsoo "test/test_jsoo";
        jsoo_test ~cond:jsoo "test/test_jsoo_fluid";
-       jsoo_test ~cond:jsoo "test/chain"
+       jsoo_test ~cond:jsoo "test/chain" *)
  ]
