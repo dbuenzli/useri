@@ -20,6 +20,13 @@ let jsoo () =
   pflag [ "js_of_ocaml" ] "opt" (fun n -> S [ A "--opt"; A n ]);
   pflag [ "js_of_ocaml" ] "set" (fun n -> S [ A "--set"; A n ])
 
+
+let no_keep_locs () =
+  ["compile"; "link"; "pack"] |> List.iter begin fun phase ->
+    flag ["ocaml"; phase; "no_keep_locs";] (A "-no-keep-locs")
+  end
+
+
 let () = Ocamlbuild_plugin.dispatch @@ function
-| After_rules -> jsoo ()
+| After_rules -> jsoo (); no_keep_locs ()
 | _ -> ()

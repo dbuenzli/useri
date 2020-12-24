@@ -1,4 +1,4 @@
-<**/*.{ml,mli}> : bin_annot
+<**/*.{ml,mli}> : bin_annot, no_keep_locs
 
 <_b0> : -include
 <src> : include
