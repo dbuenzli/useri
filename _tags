@@ -1,5 +1,6 @@
-<**/*.{ml,mli}> : bin_annot, safe_string
+<**/*.{ml,mli}> : bin_annot
 
+<_b0> : -include
 <src> : include
 <src-jsoo> : include
 <src-tsdl> : include
@@ -9,7 +10,7 @@
 
 <src-tsdl/*> : package(gg react tsdl)
 <src-jsoo/*> : package(gg react js_of_ocaml), \
-               package(js_of_ocaml.ppx)
+               package(js_of_ocaml-ppx)
 
 <test> : include
 <test/*> : package(gg), package(react)
@@ -18,12 +19,12 @@
 <test/min.native> : package(tsdl), tsdl
 
 <test/*tsdl*> : package(tsdl), base, tsdl, useri
-<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml.ppx), \
-                package(js_of_ocaml.weak), base, jsoo, useri
+<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml-ppx), \
+                base, jsoo, useri
 <test/*tsdl*fut*> : thread, package(fut.select fut.r fut)
 <test/*tsdl*lwt*> : package(lwt lwt.unix lwt.react)
 
-<test/*life*> : package(js_of_ocaml), package(js_of_ocaml.weak), \
+<test/*life*> : package(js_of_ocaml), \
                 package(vg,vg.htmlc), jsoo
-<test/*chain*> : package(js_of_ocaml), package(js_of_ocaml.weak), \
+<test/*chain*> : package(js_of_ocaml), \
                  package(vg,vg.htmlc), jsoo

@@ -774,7 +774,6 @@ end
    This minimal example can be used on both synchronous
    and asynchronous backends.
 {[
-
 ]}
 
    {1:cooperate Integration with cooperative concurency}

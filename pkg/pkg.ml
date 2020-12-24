@@ -8,7 +8,7 @@ let jsoo = Conf.with_pkg "js_of_ocaml"
 
 let build =
   let cmd c os files =
-    let jsoo_args = Cmd.(v "-plugin-tag" % "package(js_of_ocaml.ocamlbuild)") in
+    let jsoo_args = Cmd.(v "-plugin-tag" % "package(js_of_ocaml-ocamlbuild)") in
     let jsoo = Cmd.(on (Conf.value c jsoo) jsoo_args) in
     let cflags = Cmd.(v "-cflags" % "-no-keep-locs") in
     OS.Cmd.run @@ Cmd.(Pkg.build_cmd c os %% cflags %% jsoo %% of_list files)

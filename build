@@ -6,7 +6,7 @@ set -e
 
 OCAMLBUILD=${OCAMLBUILD:="ocamlbuild -tag debug -classic-display \
                           -use-ocamlfind \
-                          -plugin-tag package(js_of_ocaml.ocamlbuild)"}
+                          -plugin-tag package(js_of_ocaml-ocamlbuild)"}
 
 action ()
 {
