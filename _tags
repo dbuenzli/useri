@@ -15,12 +15,11 @@
 <test> : include
 <test/*> : package(gg), package(react)
 
-<test/min.byte> : package(js_of_ocaml), base, jsoo, useri
-<test/min.native> : package(tsdl), tsdl
+<test/min.byte> : package(js_of_ocaml)
+<test/min.native> : package(tsdl)
 
-<test/*tsdl*> : package(tsdl), base, tsdl, useri
-<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml-ppx), \
-                base, jsoo, useri
+<test/*tsdl*> : package(tsdl)
+<test/*jsoo*> : package(js_of_ocaml), package(js_of_ocaml-ppx), jsoo
 <test/*tsdl*fut*> : thread, package(fut.select fut.r fut)
 <test/*tsdl*lwt*> : package(lwt lwt.unix lwt.react)
 

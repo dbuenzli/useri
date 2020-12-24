@@ -17,11 +17,9 @@ depends: [
   "gg"
   "react"
 
-
   # Todo should be depopted
   "js_of_ocaml" {>= "3.0"}
   "js_of_ocaml-compiler" {>= "3.0"}
-  "js_of_ocaml-ocamlbuild" {>= "3.0"}
   "js_of_ocaml-ppx" {>= "3.0"}
 ]
 depopts: [ "tsdl" ]

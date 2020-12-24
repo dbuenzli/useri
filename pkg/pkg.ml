@@ -6,22 +6,13 @@ open Topkg
 let tsdl = Conf.with_pkg "tsdl"
 let jsoo = Conf.with_pkg "js_of_ocaml"
 
-let build =
-  let cmd c os files =
-    let jsoo_args = Cmd.(v "-plugin-tag" % "package(js_of_ocaml-ocamlbuild)") in
-    let jsoo = Cmd.(on (Conf.value c jsoo) jsoo_args) in
-    let cflags = Cmd.(v "-cflags" % "-no-keep-locs") in
-    OS.Cmd.run @@ Cmd.(Pkg.build_cmd c os %% cflags %% jsoo %% of_list files)
-  in
-  Pkg.build ~cmd ()
-
 let jsoo_test ~cond test =
   Pkg.flatten
     [ Pkg.test ~run:false ~cond ~auto:false (test ^ ".js");
       Pkg.test ~run:false ~cond ~auto:false (test ^ ".html"); ]
 
 let () =
-  Pkg.describe "useri" ~build @@ fun c ->
+  Pkg.describe "useri" @@ fun c ->
   let tsdl = Conf.value c tsdl in
   let jsoo = Conf.value c jsoo in
   Ok [ Pkg.mllib "src/useri.mllib";
